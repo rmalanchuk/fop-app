@@ -56,7 +56,7 @@
 <script>
     let curY = 2025, curT = 0;
     const mons = [["Січень","Лютий","Березень"],["Квітень","Травень","Червень"],["Липень","Серпень","Вересень"],["Жовтень","Листопад","Грудень"]];
-    let db = JSON.parse(localStorage.getItem('fop_vFinal_v3')) || {};
+    let db = JSON.parse(localStorage.getItem('fop_vFinal_v2')) || {};
 
     function changeYear() { curY = parseInt(document.getElementById('yField').value); updateUI(); }
     function switchTab(t, el) { 
@@ -67,33 +67,16 @@
     }
 
     function updateUI() {
-        document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => {
-            const key = `${curY}-${curT}-${i}`;
-            const val = db[key] || '';
-            return `
-                <div class="row">
-                    <span>${m}</span>
-                    <input type="text" class="input-amt" inputmode="decimal" id="inp-${i}" value="${val.replace('.', ',')}" oninput="saveVal(${i}, this.value)">
-                </div>
-            `;
-        }).join('');
+        document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => `
+            <div class="row">
+                <span>${m}</span>
+                <input type="text" class="input-amt" inputmode="decimal" id="inp-${i}" value="${db[`${curY}-${curT}-${i}`] || ''}" oninput="saveVal(${i}, this.value)">
+            </div>
+        `).join('');
         calculate();
     }
 
     function saveVal(idx, val) {
         db[`${curY}-${curT}-${idx}`] = val.replace(',', '.');
-        localStorage.setItem('fop_vFinal_v3', JSON.stringify(db));
+        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
         calculate();
-    }
-
-    function calculate() {
-        let qSums = [0,0,0,0];
-        // Рахуємо суми для всіх кварталів поточного року
-        for(let q=0; q<=3; q++) {
-            for(let m=0; m<=2; m++) {
-                qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
-            }
-        }
-
-        let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
-        let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
