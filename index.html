@@ -80,3 +80,47 @@
         db[`${curY}-${curT}-${idx}`] = val.replace(',', '.');
         localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
         calculate();
+    }
+
+    function calculate() {
+        let qSums = [0,0,0,0];
+        for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
+
+        let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
+        let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
+
+        const ep = { tot: cumInc * 0.05, prv: prvInc * 0.05, pay: (cumInc * 0.05) - (prvInc * 0.05) };
+        const vz = { tot: cumInc * 0.01, prv: prvInc * 0.01, pay: (cumInc * 0.01) - (prvInc * 0.01) };
+
+        document.getElementById('pay-ep').innerText = ep.pay.toFixed(2) + ' ₴';
+        const vzRow = document.getElementById('vz-row');
+        if(curY >= 2025) { vzRow.style.display = 'flex'; document.getElementById('pay-vz').innerText = vz.pay.toFixed(2) + ' ₴'; }
+        else { vzRow.style.display = 'none'; }
+
+        let detHtml = `
+            <div class="field-item"><div class="f-num">-</div><div class="f-sum">${qSums[curT].toFixed(2)}</div><div class="f-desc">Зароблено за квартал</div></div>
+            <div class="field-item"><div class="f-num">6</div><div class="f-sum">${cumInc.toFixed(2)}</div><div class="f-desc">Всього зароблено за існуючий рік</div></div>
+            <div class="field-item"><div class="f-num">8</div><div class="f-sum">${cumInc.toFixed(2)}</div><div class="f-desc">Всього зароблено за існуючий рік</div></div>
+            <div class="field-item"><div class="f-num">11</div><div class="f-sum">${ep.tot.toFixed(2)}</div><div class="f-desc">Нараховано податків на загальну суму</div></div>
+            <div class="field-item"><div class="f-num">12</div><div class="f-sum">${ep.tot.toFixed(2)}</div><div class="f-desc">Нараховано податків на загальну суму</div></div>
+            <div class="field-item"><div class="f-num">13</div><div class="f-sum">${ep.prv.toFixed(2)}</div><div class="f-desc">За попередні квартали заплачено</div></div>
+            <div class="field-item"><div class="f-num">14</div><div class="f-sum">${ep.pay.toFixed(2)}</div><div class="f-desc">Потрібно сплатити податків у цьому кварталі</div></div>
+        `;
+        if(curY >= 2025) {
+            detHtml += `
+                <div class="field-item"><div class="f-num">23</div><div class="f-sum">${vz.tot.toFixed(2)}</div><div class="f-desc">Нараховано військового збору на загальну суму</div></div>
+                <div class="field-item"><div class="f-num">24</div><div class="f-sum">${vz.prv.toFixed(2)}</div><div class="f-desc">За попередні квартали заплачено військового збору</div></div>
+                <div class="field-item"><div class="f-num">25</div><div class="f-sum">${vz.pay.toFixed(2)}</div><div class="f-desc">Потрібно сплатити військового збору у цьому кварталі</div></div>
+            `;
+        }
+        document.getElementById('det-sec').innerHTML = detHtml;
+    }
+
+    function toggleDet() {
+        const s = document.getElementById('det-sec').style;
+        s.display = (s.display === 'block') ? 'none' : 'block';
+    }
+    updateUI();
+</script>
+</body>
+</html>
