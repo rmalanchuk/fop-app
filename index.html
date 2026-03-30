@@ -21,7 +21,7 @@
         .res-box { border-top: 1px solid #f2f2f7; margin-top: 20px; padding-top: 20px; }
         .res-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 700; }
         .res-val { color: var(--p); font-size: 18px; }
-        .det-btn { background: #f2f2f7; border: none; width: 100%; padding: 12px; border-radius: 12px; color: var(--p); font-weight: 600; margin-top: 10px; }
+        .det-btn { background: #f2f2f7; border: none; width: 100%; padding: 12px; border-radius: 12px; color: var(--p); font-weight: 600; margin-top: 10px; cursor: pointer; }
         .details { display: none; margin-top: 20px; border-top: 1px dashed #d1d1d6; padding-top: 15px; }
         .field-item { display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 13px; line-height: 1.4; }
         .f-num { background: #ffd43b; color: #000; font-weight: 800; padding: 2px 6px; border-radius: 4px; min-width: 25px; text-align: center; margin-right: 10px; font-size: 11px; }
@@ -56,7 +56,7 @@
 <script>
     let curY = 2025, curT = 0;
     const mons = [["Січень","Лютий","Березень"],["Квітень","Травень","Червень"],["Липень","Серпень","Вересень"],["Жовтень","Листопад","Грудень"]];
-    let db = JSON.parse(localStorage.getItem('fop_vFinal_v2')) || {};
+    let db = JSON.parse(localStorage.getItem('fop_vFinal_v3')) || {};
 
     function changeYear() { curY = parseInt(document.getElementById('yField').value); updateUI(); }
     function switchTab(t, el) { 
@@ -67,59 +67,33 @@
     }
 
     function updateUI() {
-        document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => `
-            <div class="row">
-                <span>${m}</span>
-                <input type="text" class="input-amt" inputmode="decimal" id="inp-${i}" value="${db[`${curY}-${curT}-${i}`] || ''}" oninput="saveVal(${i}, this.value)">
-            </div>
-        `).join('');
+        document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => {
+            const key = `${curY}-${curT}-${i}`;
+            const val = db[key] || '';
+            return `
+                <div class="row">
+                    <span>${m}</span>
+                    <input type="text" class="input-amt" inputmode="decimal" id="inp-${i}" value="${val.replace('.', ',')}" oninput="saveVal(${i}, this.value)">
+                </div>
+            `;
+        }).join('');
         calculate();
     }
 
     function saveVal(idx, val) {
         db[`${curY}-${curT}-${idx}`] = val.replace(',', '.');
-        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+        localStorage.setItem('fop_vFinal_v3', JSON.stringify(db));
         calculate();
     }
 
     function calculate() {
         let qSums = [0,0,0,0];
-        for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
+        // Рахуємо суми для всіх кварталів поточного року
+        for(let q=0; q<=3; q++) {
+            for(let m=0; m<=2; m++) {
+                qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
+            }
+        }
 
         let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
         let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
-
-        const ep = { tot: cumInc * 0.05, prv: prvInc * 0.05, pay: (cumInc * 0.05) - (prvInc * 0.05) };
-        const vz = { tot: cumInc * 0.01, prv: prvInc * 0.01, pay: (cumInc * 0.01) - (prvInc * 0.01) };
-
-        document.getElementById('pay-ep').innerText = ep.pay.toFixed(2) + ' ₴';
-        const vzRow = document.getElementById('vz-row');
-        if(curY >= 2025) { vzRow.style.display = 'flex'; document.getElementById('pay-vz').innerText = vz.pay.toFixed(2) + ' ₴'; }
-        else { vzRow.style.display = 'none'; }
-
-        let detHtml = `
-            <div class="field-item"><div class="f-num">6</div><div class="f-sum">${qSums[curT].toFixed(2)}</div><div class="f-desc">Зароблено у кварталі</div></div>
-            <div class="field-item"><div class="f-num">8</div><div class="f-sum">${cumInc.toFixed(2)}</div><div class="f-desc">Всього зароблено за існуючий рік</div></div>
-            <div class="field-item"><div class="f-num">11</div><div class="f-sum">${cumInc.toFixed(2)}</div><div class="f-desc">Всього зароблено за існуючий рік</div></div>
-            <div class="field-item"><div class="f-num">12</div><div class="f-sum">${ep.tot.toFixed(2)}</div><div class="f-desc">Нараховано податків за загальну суму</div></div>
-            <div class="field-item"><div class="f-num">13</div><div class="f-sum">${ep.prv.toFixed(2)}</div><div class="f-desc">За попередні квартали заплачено</div></div>
-            <div class="field-item"><div class="f-num">14</div><div class="f-sum">${ep.pay.toFixed(2)}</div><div class="f-desc">Потрібно сплатити податків у цьому кварталі</div></div>
-        `;
-        if(curY >= 2025) {
-            detHtml += `
-                <div class="field-item"><div class="f-num">23</div><div class="f-sum">${vz.tot.toFixed(2)}</div><div class="f-desc">Нараховано військового збору на загальну суму</div></div>
-                <div class="field-item"><div class="f-num">24</div><div class="f-sum">${vz.prv.toFixed(2)}</div><div class="f-desc">За попередні квартали заплачено військового збору</div></div>
-                <div class="field-item"><div class="f-num">25</div><div class="f-sum">${vz.pay.toFixed(2)}</div><div class="f-desc">Потрібно сплатити військового збору у цьому кварталі</div></div>
-            `;
-        }
-        document.getElementById('det-sec').innerHTML = detHtml;
-    }
-
-    function toggleDet() {
-        const s = document.getElementById('det-sec').style;
-        s.display = (s.display === 'block') ? 'none' : 'block';
-    }
-    updateUI();
-</script>
-</body>
-</html>
