@@ -70,7 +70,7 @@
         document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => `
             <div class="row">
                 <span>${m}</span>
-                <input type="text" class="input-amt" inputmode="decimal" id="inp-${i}" value="${db[`${curY}-${curT}-${i}`] || ''}" oninput="saveVal(${i}, this.value)">
+                <input type="text" class="input-amt" id="inp-${i}" inputmode="decimal" value="${db[`${curY}-${curT}-${i}`] || ''}" oninput="saveVal(${i}, this.value)">
             </div>
         `).join('');
         calculate();
