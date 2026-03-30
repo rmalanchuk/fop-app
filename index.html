@@ -6,115 +6,120 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>ФОП Роман</title>
     <style>
-        :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #0f172a; }
-        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 40px; }
-        .container { width: 100%; max-width: 450px; margin: auto; }
-        h1 { font-size: 1.3rem; text-align: center; margin-bottom: 5px; }
-        .card { background: var(--card); padding: 15px; border-radius: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .q-title { font-weight: 800; color: var(--primary); margin-bottom: 12px; font-size: 1.1rem; }
-        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        input { width: 45%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; text-align: right; font-size: 1rem; outline: none; }
-        .res-box { background: #f8fafc; border-left: 4px solid #10b981; padding: 12px; border-radius: 10px; margin-top: 10px; font-size: 0.85rem; line-height: 1.4; }
-        .res-line { display: flex; justify-content: space-between; border-bottom: 1px solid #edf2f7; padding: 3px 0; }
-        .val { font-weight: 700; color: var(--primary); }
-        .clear-btn { background: #fee2e2; color: #b91c1c; border: none; padding: 12px; border-radius: 12px; width: 100%; margin-top: 10px; font-weight: 600; font-size: 0.9rem; }
+        :root { --p: #007aff; --bg: #f2f2f7; --c: #ffffff; --t: #1c1c1e; --s: #8e8e93; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--t); margin: 0; padding: 20px; -webkit-tap-highlight-color: transparent; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .year-input { border: 1px solid #d1d1d6; border-radius: 10px; padding: 8px; width: 80px; text-align: center; font-size: 16px; font-weight: bold; background: white; }
+        .tabs { display: flex; background: rgba(118,118,128,0.12); border-radius: 12px; padding: 2px; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 10px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; }
+        .tab.active { background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); color: var(--p); }
+        .card { background: var(--c); border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .input-amt { width: 55%; padding: 12px; border: 1.5px solid #e5e5ea; border-radius: 12px; font-size: 17px; text-align: right; outline: none; }
+        .input-amt:focus { border-color: var(--p); }
+        .res-box { border-top: 1px solid #f2f2f7; margin-top: 20px; padding-top: 20px; }
+        .res-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 700; }
+        .res-val { color: var(--p); font-size: 18px; }
+        .det-btn { background: #f2f2f7; border: none; width: 100%; padding: 12px; border-radius: 12px; color: var(--p); font-weight: 600; margin-top: 10px; }
+        .details { display: none; margin-top: 20px; border-top: 1px dashed #d1d1d6; padding-top: 15px; }
+        .field-item { display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 13px; line-height: 1.4; }
+        .f-num { background: #ffd43b; color: #000; font-weight: 800; padding: 2px 6px; border-radius: 4px; min-width: 25px; text-align: center; margin-right: 10px; font-size: 11px; }
+        .f-sum { font-weight: 700; color: var(--p); margin-right: 8px; white-space: nowrap; }
+        .f-desc { color: #48484a; flex: 1; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>ФОП Роман Маланчук</h1>
-    <p style="text-align: center; opacity: 0.6; font-size: 0.8rem; margin-bottom: 15px;">Податковий помічник 2025</p>
-    <div id="app"></div>
-    <button class="clear-btn" onclick="clearData()">Очистити всі дані за рік</button>
+    <div class="header">
+        <div style="font-size: 20px; font-weight: 800;">Роман Маланчук</div>
+        <input type="number" id="yField" class="year-input" value="2025" onchange="changeYear()">
+    </div>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab(0, this)">Q1</div>
+        <div class="tab" onclick="switchTab(1, this)">Q2</div>
+        <div class="tab" onclick="switchTab(2, this)">Q3</div>
+        <div class="tab" onclick="switchTab(3, this)">Q4</div>
+    </div>
+    <div class="card">
+        <div id="inputs-container"></div>
+        <div class="res-box">
+            <div class="res-row"><span>До сплати ЄП:</span> <span id="pay-ep" class="res-val">0.00 ₴</span></div>
+            <div id="vz-row" class="res-row" style="display:none;"><span>До сплати ВЗ:</span> <span id="pay-vz" class="res-val">0.00 ₴</span></div>
+            <button class="det-btn" onclick="toggleDet()">Колонки в декларації</button>
+            <div id="det-sec" class="details"></div>
+        </div>
+    </div>
 </div>
 
 <script>
-    const months = [
-        ["Січень", "Лютий", "Березень"],
-        ["Квітень", "Травень", "Червень"],
-        ["Липень", "Серпень", "Вересень"],
-        ["Жовтень", "Листопад", "Грудень"]
-    ];
+    let curY = 2025, curT = 0;
+    const mons = [["Січень","Лютий","Березень"],["Квітень","Травень","Червень"],["Липень","Серпень","Вересень"],["Жовтень","Листопад","Грудень"]];
+    let db = JSON.parse(localStorage.getItem('fop_vFinal_v2')) || {};
 
-    function initApp() {
-        let html = '';
-        months.forEach((qMonths, qIdx) => {
-            html += `<div class="card">
-                <div class="q-title">${qIdx + 1} Квартал</div>
-                ${qMonths.map((m, mIdx) => `
-                    <div class="row">
-                        <span>${m}</span>
-                        <input type="text" inputmode="decimal" id="m-${qIdx}-${mIdx}" oninput="saveAndCalc()" placeholder="0.00">
-                    </div>`).join('')}
-                <div class="res-box" id="res-${qIdx}">Введіть дохід...</div>
-            </div>`;
-        });
-        document.getElementById('app').innerHTML = html;
-        loadData();
+    function changeYear() { curY = parseInt(document.getElementById('yField').value); updateUI(); }
+    function switchTab(t, el) { 
+        curT = t; 
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        updateUI(); 
     }
 
-    function saveAndCalc() {
-        const data = {};
-        document.querySelectorAll('input').forEach(input => {
-            data[input.id] = input.value.replace(',', '.');
-        });
-        localStorage.setItem('fop_data_final', JSON.stringify(data));
-        calculateAll();
+    function updateUI() {
+        document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => `
+            <div class="row">
+                <span>${m}</span>
+                <input type="text" class="input-amt" inputmode="decimal" id="inp-${i}" value="${db[`${curY}-${curT}-${i}`] || ''}" oninput="saveVal(${i}, this.value)">
+            </div>
+        `).join('');
+        calculate();
     }
 
-    function loadData() {
-        const saved = localStorage.getItem('fop_data_final');
-        if (saved) {
-            const data = JSON.parse(saved);
-            Object.keys(data).forEach(id => {
-                const input = document.getElementById(id);
-                if (input) input.value = data[id].replace('.', ',');
-            });
+    function saveVal(idx, val) {
+        db[`${curY}-${curT}-${idx}`] = val.replace(',', '.');
+        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+        calculate();
+    }
+
+    function calculate() {
+        let qSums = [0,0,0,0];
+        for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
+
+        let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
+        let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
+
+        const ep = { tot: cumInc * 0.05, prv: prvInc * 0.05, pay: (cumInc * 0.05) - (prvInc * 0.05) };
+        const vz = { tot: cumInc * 0.01, prv: prvInc * 0.01, pay: (cumInc * 0.01) - (prvInc * 0.01) };
+
+        document.getElementById('pay-ep').innerText = ep.pay.toFixed(2) + ' ₴';
+        const vzRow = document.getElementById('vz-row');
+        if(curY >= 2025) { vzRow.style.display = 'flex'; document.getElementById('pay-vz').innerText = vz.pay.toFixed(2) + ' ₴'; }
+        else { vzRow.style.display = 'none'; }
+
+        let detHtml = `
+            <div class="field-item"><div class="f-num">6</div><div class="f-sum">${qSums[curT].toFixed(2)}</div><div class="f-desc">Зароблено у кварталі</div></div>
+            <div class="field-item"><div class="f-num">8</div><div class="f-sum">${cumInc.toFixed(2)}</div><div class="f-desc">Всього зароблено за існуючий рік</div></div>
+            <div class="field-item"><div class="f-num">11</div><div class="f-sum">${cumInc.toFixed(2)}</div><div class="f-desc">Всього зароблено за існуючий рік</div></div>
+            <div class="field-item"><div class="f-num">12</div><div class="f-sum">${ep.tot.toFixed(2)}</div><div class="f-desc">Нараховано податків за загальну суму</div></div>
+            <div class="field-item"><div class="f-num">13</div><div class="f-sum">${ep.prv.toFixed(2)}</div><div class="f-desc">За попередні квартали заплачено</div></div>
+            <div class="field-item"><div class="f-num">14</div><div class="f-sum">${ep.pay.toFixed(2)}</div><div class="f-desc">Потрібно сплатити податків у цьому кварталі</div></div>
+        `;
+        if(curY >= 2025) {
+            detHtml += `
+                <div class="field-item"><div class="f-num">23</div><div class="f-sum">${vz.tot.toFixed(2)}</div><div class="f-desc">Нараховано військового збору на загальну суму</div></div>
+                <div class="field-item"><div class="f-num">24</div><div class="f-sum">${vz.prv.toFixed(2)}</div><div class="f-desc">За попередні квартали заплачено військового збору</div></div>
+                <div class="field-item"><div class="f-num">25</div><div class="f-sum">${vz.pay.toFixed(2)}</div><div class="f-desc">Потрібно сплатити військового збору у цьому кварталі</div></div>
+            `;
         }
-        calculateAll();
+        document.getElementById('det-sec').innerHTML = detHtml;
     }
 
-    function calculateAll() {
-        let cumulativeIncome = 0;
-        let prevTaxEP = 0;
-        let prevTaxVZ = 0;
-
-        for (let qIdx = 0; qIdx < 4; qIdx++) {
-            let qIncome = 0;
-            for (let mIdx = 0; mIdx < 3; mIdx++) {
-                const el = document.getElementById(`m-${qIdx}-${mIdx}`);
-                if (el) {
-                    const val = el.value.replace(',', '.');
-                    qIncome += parseFloat(val) || 0;
-                }
-            }
-            
-            cumulativeIncome += qIncome;
-            const totalTaxEP = cumulativeIncome * 0.05;
-            const currentPayEP = totalTaxEP - prevTaxEP;
-            const totalTaxVZ = cumulativeIncome * 0.01;
-            const currentPayVZ = totalTaxVZ - prevTaxSumVZ_calc = (totalTaxVZ - prevTaxVZ);
-
-            const resDiv = document.getElementById(`res-${qIdx}`);
-            if (resDiv) {
-                resDiv.innerHTML = `
-                    <div class="res-line"><span>Зароблено за квартал:</span> <span class="val">${qIncome.toLocaleString()}</span></div>
-                    <div class="res-line"><span>Ряд. 6, 8 (Дохід за рік):</span> <span class="val">${cumulativeIncome.toLocaleString()}</span></div>
-                    <div class="res-line"><span>Ряд. 11, 12 (Нараховано ЄП):</span> <span class="val">${totalTaxEP.toFixed(2)}</span></div>
-                    <div class="res-line"><span>Ряд. 13 (Заплачено раніше):</span> <span class="val">${prevTaxEP.toFixed(2)}</span></div>
-                    <div class="res-line" style="color:#10b981"><b>Ряд. 14 (Сплатити ЄП):</b> <span class="val">${currentPayEP.toFixed(2)}</span></div>
-                    <div style="margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:5px;">
-                        <div class="res-line"><span>Ряд. 23 (ВЗ за рік):</span> <span class="val">${totalTaxVZ.toFixed(2)}</span></div>
-                        <div class="res-line"><span>Ряд. 24 (ВЗ раніше):</span> <span class="val">${prevTaxVZ.toFixed(2)}</span></div>
-                        <div class="res-line" style="color:#b91c1c"><b>Ряд. 25 (Сплатити ВЗ):</b> <span class="val">${currentPayVZ.toFixed(2)}</span></div>
-                    </div>`;
-            }
-            prevTaxEP = totalTaxEP;
-            prevTaxVZ = totalTaxVZ;
-        }
+    function toggleDet() {
+        const s = document.getElementById('det-sec').style;
+        s.display = (s.display === 'block') ? 'none' : 'block';
     }
-
-    function clearData() {
-        if (confirm("Видалити всі дані?")) {
-            localStorage.removeItem('fop_data_final');
+    updateUI();
+</script>
+</body>
+</html>
