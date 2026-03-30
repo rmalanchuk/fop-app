@@ -4,30 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>ФОП Роман Маланчук</title>
+    <title>ФОП Роман</title>
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #0f172a; }
-        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; padding-bottom: 60px; }
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 40px; }
         .container { width: 100%; max-width: 450px; margin: auto; }
-        h1 { font-size: 1.4rem; text-align: center; margin-bottom: 5px; }
-        .card { background: var(--card); padding: 18px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
-        .q-title { font-weight: 800; color: var(--primary); margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        h1 { font-size: 1.3rem; text-align: center; margin-bottom: 5px; }
+        .card { background: var(--card); padding: 15px; border-radius: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #e2e8f0; }
+        .q-title { font-weight: 800; color: var(--primary); margin-bottom: 12px; font-size: 1.1rem; }
+        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         input { width: 45%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; text-align: right; font-size: 1rem; outline: none; }
-        input:focus { border-color: var(--primary); }
-        .res-box { background: #f8fafc; border-left: 4px solid #10b981; padding: 12px; border-radius: 12px; margin-top: 15px; font-size: 0.85rem; line-height: 1.5; }
-        .res-line { display: flex; justify-content: space-between; border-bottom: 1px solid #eef2f6; padding: 2px 0; }
-        .res-line b { color: #334155; }
+        .res-box { background: #f8fafc; border-left: 4px solid #10b981; padding: 12px; border-radius: 10px; margin-top: 10px; font-size: 0.85rem; line-height: 1.4; }
+        .res-line { display: flex; justify-content: space-between; border-bottom: 1px solid #edf2f7; padding: 3px 0; }
         .val { font-weight: 700; color: var(--primary); }
-        .clear-btn { background: #fee2e2; color: #b91c1c; border: none; padding: 12px; border-radius: 12px; width: 100%; margin-top: 20px; font-weight: 600; cursor: pointer; }
+        .clear-btn { background: #fee2e2; color: #b91c1c; border: none; padding: 12px; border-radius: 12px; width: 100%; margin-top: 10px; font-weight: 600; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>ФОП Роман Маланчук</h1>
-    <p style="text-align: center; opacity: 0.6; font-size: 0.8rem; margin-bottom: 20px;">Податковий помічник (Декларація 2025)</p>
-
+    <p style="text-align: center; opacity: 0.6; font-size: 0.8rem; margin-bottom: 15px;">Податковий помічник 2025</p>
     <div id="app"></div>
     <button class="clear-btn" onclick="clearData()">Очистити всі дані за рік</button>
 </div>
@@ -43,18 +40,15 @@
     function initApp() {
         let html = '';
         months.forEach((qMonths, qIdx) => {
-            html += `
-                <div class="card">
-                    <div class="q-title"><span>${qIdx + 1} Квартал</span></div>
-                    ${qMonths.map((m, mIdx) => `
-                        <div class="row">
-                            <span>${m}</span>
-                            <input type="text" inputmode="decimal" id="m-${qIdx}-${mIdx}" oninput="saveAndCalc()" placeholder="0.00">
-                        </div>
-                    `).join('')}
-                    <div class="res-box" id="res-${qIdx}">Введіть дохід...</div>
-                </div>
-            `;
+            html += `<div class="card">
+                <div class="q-title">${qIdx + 1} Квартал</div>
+                ${qMonths.map((m, mIdx) => `
+                    <div class="row">
+                        <span>${m}</span>
+                        <input type="text" inputmode="decimal" id="m-${qIdx}-${mIdx}" oninput="saveAndCalc()" placeholder="0.00">
+                    </div>`).join('')}
+                <div class="res-box" id="res-${qIdx}">Введіть дохід...</div>
+            </div>`;
         });
         document.getElementById('app').innerHTML = html;
         loadData();
@@ -65,12 +59,12 @@
         document.querySelectorAll('input').forEach(input => {
             data[input.id] = input.value.replace(',', '.');
         });
-        localStorage.setItem('fop_data_2025_v3', JSON.stringify(data));
+        localStorage.setItem('fop_data_final', JSON.stringify(data));
         calculateAll();
     }
 
     function loadData() {
-        const saved = localStorage.getItem('fop_data_2025_v3');
+        const saved = localStorage.getItem('fop_data_final');
         if (saved) {
             const data = JSON.parse(saved);
             Object.keys(data).forEach(id => {
@@ -83,15 +77,44 @@
 
     function calculateAll() {
         let cumulativeIncome = 0;
-        let prevTaxSumEP = 0;
-        let prevTaxSumVZ = 0;
+        let prevTaxEP = 0;
+        let prevTaxVZ = 0;
 
-        months.forEach((_, qIdx) => {
+        for (let qIdx = 0; qIdx < 4; qIdx++) {
             let qIncome = 0;
             for (let mIdx = 0; mIdx < 3; mIdx++) {
-                const val = document.getElementById(`m-${qIdx}-${mIdx}`).value.replace(',', '.');
-                qIncome += parseFloat(val) || 0;
+                const el = document.getElementById(`m-${qIdx}-${mIdx}`);
+                if (el) {
+                    const val = el.value.replace(',', '.');
+                    qIncome += parseFloat(val) || 0;
+                }
             }
             
             cumulativeIncome += qIncome;
-            const totalTaxEP = cumulativeIncome * 0.05; // Р
+            const totalTaxEP = cumulativeIncome * 0.05;
+            const currentPayEP = totalTaxEP - prevTaxEP;
+            const totalTaxVZ = cumulativeIncome * 0.01;
+            const currentPayVZ = totalTaxVZ - prevTaxSumVZ_calc = (totalTaxVZ - prevTaxVZ);
+
+            const resDiv = document.getElementById(`res-${qIdx}`);
+            if (resDiv) {
+                resDiv.innerHTML = `
+                    <div class="res-line"><span>Зароблено за квартал:</span> <span class="val">${qIncome.toLocaleString()}</span></div>
+                    <div class="res-line"><span>Ряд. 6, 8 (Дохід за рік):</span> <span class="val">${cumulativeIncome.toLocaleString()}</span></div>
+                    <div class="res-line"><span>Ряд. 11, 12 (Нараховано ЄП):</span> <span class="val">${totalTaxEP.toFixed(2)}</span></div>
+                    <div class="res-line"><span>Ряд. 13 (Заплачено раніше):</span> <span class="val">${prevTaxEP.toFixed(2)}</span></div>
+                    <div class="res-line" style="color:#10b981"><b>Ряд. 14 (Сплатити ЄП):</b> <span class="val">${currentPayEP.toFixed(2)}</span></div>
+                    <div style="margin-top:8px; border-top:1px dashed #cbd5e1; padding-top:5px;">
+                        <div class="res-line"><span>Ряд. 23 (ВЗ за рік):</span> <span class="val">${totalTaxVZ.toFixed(2)}</span></div>
+                        <div class="res-line"><span>Ряд. 24 (ВЗ раніше):</span> <span class="val">${prevTaxVZ.toFixed(2)}</span></div>
+                        <div class="res-line" style="color:#b91c1c"><b>Ряд. 25 (Сплатити ВЗ):</b> <span class="val">${currentPayVZ.toFixed(2)}</span></div>
+                    </div>`;
+            }
+            prevTaxEP = totalTaxEP;
+            prevTaxVZ = totalTaxVZ;
+        }
+    }
+
+    function clearData() {
+        if (confirm("Видалити всі дані?")) {
+            localStorage.removeItem('fop_data_final');
