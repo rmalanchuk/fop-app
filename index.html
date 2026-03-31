@@ -609,50 +609,48 @@ function renderAccountList(accounts) {
     }).join('');
 }
 async function fetchFromMono() {
-    if (!cfg.secret || !cfg.accountIds?.length) { openSettings(); return; }
+    if (!cfg.secret || !cfg.accountIds?.length) { 
+        openSettings(); 
+        return; 
+    }
     
     const btn = document.getElementById('mono-btn');
     const btnText = document.getElementById('mono-btn-text');
+    
+    // Блокуємо кнопку на час очікування (2-2.5 хвилини)
     btn.disabled = true;
-    btnText.textContent = '⏳ Отримую дані...';
+    btnText.textContent = '⏳ Опитування (2 хв)...';
 
     try {
-        const months = Q_MONTHS[curT];
+        const id = cfg.accountIds[0];
+        // Викликаємо новий роут /quarter-income
+        const url = `${SERVER}/quarter-income?accountId=${id}&year=${curY}&quarter=${curT + 1}`;
+        
+        const r = await fetch(url, { 
+            headers: { 'x-secret-key': cfg.secret } 
+        });
 
+        if (!r.ok) throw new Error('Помилка сервера');
+        
+        const d = await r.json();
+
+        // Записуємо отримані дані в об'єкт бази (db)
         for (let i = 0; i < 3; i++) {
-            const monthIdx = months[i];
-            const from = Math.floor(new Date(curY, monthIdx, 1, 0, 0, 0).getTime() / 1000);
-            const to = Math.floor(new Date(curY, monthIdx + 1, 0, 23, 59, 59).getTime() / 1000);
-            
-            let monthTotal = 0;
-
-            for (const id of cfg.accountIds) {
-                const url = `${SERVER}/income?accountId=${id}&from=${from}&to=${to}`;
-                const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
-                
-                if (r.status === 429) {
-                    alert('Mono заблокував запит. Спробуй через 10 хвилин.');
-                    throw new Error('Limit');
-                }
-
-                const d = await r.json();
-                monthTotal += d.total || 0;
-                
-                // ПАУЗА 4 СЕКУНДИ (це важливо для виходу з бану)
-                await new Promise(res => setTimeout(res, 4000));
-            }
-
-            if (monthTotal > 0) {
+            if (d[i] !== undefined && d[i] !== "limit" && d[i] !== 0) {
                 const key = `${curY}-${curT}-${i}`;
-                db[key] = monthTotal.toFixed(2);
-                
-                // ЗБЕРІГАЄМО ОДРАЗУ після кожного місяця
-                localStorage.setItem('fop_db_v3', JSON.stringify(db));
-                updateUI(); 
+                db[key] = d[i].toFixed(2);
             }
         }
+
+        // КРИТИЧНО: Зберігаємо все в LocalStorage за один раз
+        localStorage.setItem('fop_db_v3', JSON.stringify(db));
+        
+        updateUI();
+        alert('✅ Дані за квартал успішно збережені!');
+
     } catch(e) {
         console.error(e);
+        alert('❌ Помилка ліміту або зв’язку. Зачекайте 5 хв і спробуйте знову.');
     } finally {
         btn.disabled = false;
         btnText.textContent = 'Завантажити з Mono';
