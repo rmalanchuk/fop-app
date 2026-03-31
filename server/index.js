@@ -54,8 +54,8 @@ app.get('/income', auth, async (req, res) => {
         const total = data
             .filter(t => t.amount > 0)
             .reduce((sum, t) => {
-                // Вибираємо саме гривню. Для $740.85 це буде ~31987.09 грн
-                const val = (t.operationAmount && Math.abs(t.operationAmount) !== Math.abs(t.amount)) 
+                // Пріоритет на гривневий еквівалент (operationAmount)
+                const val = (t.operationAmount && Math.abs(t.operationAmount) > Math.abs(t.amount)) 
                     ? Math.abs(t.operationAmount) 
                     : Math.abs(t.amount);
                 return sum + val;
