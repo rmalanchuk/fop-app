@@ -43,9 +43,8 @@ async function fetchMonoStatement(accountId, from, to, attempt = 1) {
     if (r.status === 429) {
         if (attempt > 3) {
             console.log('Mono: забагато спроб, здаємось');
-            return null; // повертаємо null — фронт побачить "limit"
+            return null;
         }
-        // Чекаємо скільки каже заголовок, або 61 сек за замовчуванням
         const retryAfter = parseInt(r.headers.get('retry-after') || '61', 10);
         console.log(`Mono 429, чекаємо ${retryAfter}с (спроба ${attempt})`);
         await new Promise(res => setTimeout(res, retryAfter * 1000));
@@ -72,14 +71,23 @@ app.get('/accounts', async (req, res) => {
 app.get('/quarter-income', async (req, res) => {
     if (req.headers['x-secret-key'] !== SECRET_KEY) return res.status(401).send('No');
 
-    const { accountId, year, quarter } = req.query;
-    const monthsArray = [[0,1,2], [3,4,5], [6,7,8], [9,10,11]];
-    const months = monthsArray[parseInt(quarter) - 1];
+    const { accountId, year, quarter, months } = req.query;
+
+    const monthsArray = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
+    const quarterMonths = monthsArray[parseInt(quarter) - 1];
+
+    // Якщо передано параметр months=0,2 — тягнемо тільки їх, інакше всі три
+    const indicesToFetch = months
+        ? months.split(',').map(Number)
+        : [0, 1, 2];
+
     const results = {};
 
     try {
-        for (let i = 0; i < months.length; i++) {
-            const m = months[i];
+        for (let i = 0; i < indicesToFetch.length; i++) {
+            const idx = indicesToFetch[i];
+            const m = quarterMonths[idx];
+
             const from = Math.floor(new Date(year, m, 1).getTime() / 1000);
             const to   = Math.floor(new Date(year, m + 1, 0, 23, 59, 59).getTime() / 1000);
 
@@ -87,37 +95,29 @@ app.get('/quarter-income', async (req, res) => {
             const data = await fetchMonoStatement(accountId, from, to);
 
             if (data === null) {
-                results[i] = "limit";
+                results[idx] = "limit";
                 continue;
             }
 
             let monthTotalUah = 0;
 
             if (Array.isArray(data)) {
-                // Паралельно отримуємо всі курси НБУ для транзакцій місяця
-                const rates = await Promise.all(
-                    data
-                        .filter(t => t.amount > 0)
-                        .map(t => getNbuRate(t.time))
-                );
+                const incoming = data.filter(t => t.amount > 0);
+                const rates = await Promise.all(incoming.map(t => getNbuRate(t.time)));
 
-                let rateIdx = 0;
-                for (const t of data) {
-                    if (t.amount > 0) {
-                        const usdAmount = Math.abs(t.operationAmount) / 100;
-                        const rate = rates[rateIdx++];
-                        monthTotalUah += usdAmount * rate;
-                        console.log(`${usdAmount} USD × ${rate} = ${usdAmount * rate} UAH`);
-                    }
-                }
+                incoming.forEach((t, j) => {
+                    const usdAmount = Math.abs(t.operationAmount) / 100;
+                    const rate = rates[j];
+                    monthTotalUah += usdAmount * rate;
+                    console.log(`${usdAmount} USD × ${rate} = ${usdAmount * rate} UAH`);
+                });
             }
 
-            results[i] = Math.round(monthTotalUah * 100) / 100;
+            results[idx] = Math.round(monthTotalUah * 100) / 100;
 
-            // Пауза тільки між місяцями (не після останнього) — мінімальна, щоб не словити 429
-            // Якщо перший запит пройшов без 429 — швидше за все наступний теж пройде одразу
-            if (i < 2) {
-                await new Promise(res => setTimeout(res, 1000)); // 1 сек замість 61
+            // Пауза тільки між запитами (не після останнього)
+            if (i < indicesToFetch.length - 1) {
+                await new Promise(res => setTimeout(res, 1000));
             }
         }
 
