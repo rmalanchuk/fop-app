@@ -617,40 +617,42 @@ async function fetchFromMono() {
     const btn = document.getElementById('mono-btn');
     const btnText = document.getElementById('mono-btn-text');
     
-    // Блокуємо кнопку на час очікування (2-2.5 хвилини)
     btn.disabled = true;
-    btnText.textContent = '⏳ Опитування (2 хв)...';
+    btnText.textContent = '⏳ Опитування (чекай ~3 хв)...';
 
     try {
         const id = cfg.accountIds[0];
-        // Викликаємо новий роут /quarter-income
         const url = `${SERVER}/quarter-income?accountId=${id}&year=${curY}&quarter=${curT + 1}`;
         
         const r = await fetch(url, { 
             headers: { 'x-secret-key': cfg.secret } 
         });
 
-        if (!r.ok) throw new Error('Помилка сервера');
+        if (!r.ok) throw new Error('Сервер відхилив запит або ще в бані');
         
         const d = await r.json();
 
-        // Записуємо отримані дані в об'єкт бази (db)
+        // Проходимо по результатах (0, 1, 2 місяці кварталу)
         for (let i = 0; i < 3; i++) {
-            if (d[i] !== undefined && d[i] !== "limit" && d[i] !== 0) {
+            const val = d[i];
+            
+            // Записуємо ТІЛЬКИ якщо прийшло реальне число > 0 і не помилка ліміту
+            if (val !== undefined && val !== "limit" && val !== 0 && !isNaN(val)) {
                 const key = `${curY}-${curT}-${i}`;
-                db[key] = d[i].toFixed(2);
+                db[key] = parseFloat(val).toFixed(2);
+                
+                // Зберігаємо в пам'ять ТЕЛЕФОНУ негайно для кожного місяця
+                localStorage.setItem('fop_db_v3', JSON.stringify(db));
             }
         }
 
-        // КРИТИЧНО: Зберігаємо все в LocalStorage за один раз
-        localStorage.setItem('fop_db_v3', JSON.stringify(db));
-        
+        // Оновлюємо таблицю на екрані
         updateUI();
-        alert('✅ Дані за квартал успішно збережені!');
+        alert('✅ Дані завантажено! Якщо за якийсь місяць пусто — Mono ще тримає ліміт.');
 
     } catch(e) {
-        console.error(e);
-        alert('❌ Помилка ліміту або зв’язку. Зачекайте 5 хв і спробуйте знову.');
+        console.error('Помилка фронтенда:', e);
+        alert('❌ Помилка: ' + e.message + '. Спробуй пізніше.');
     } finally {
         btn.disabled = false;
         btnText.textContent = 'Завантажити з Mono';
