@@ -614,7 +614,7 @@ async function fetchFromMono() {
     const btn = document.getElementById('mono-btn');
     const btnText = document.getElementById('mono-btn-text');
     btn.disabled = true;
-    btnText.textContent = '⏳ Очищення та запит...';
+    btnText.textContent = '⏳ Отримую дані...';
 
     try {
         const months = Q_MONTHS[curT];
@@ -624,32 +624,33 @@ async function fetchFromMono() {
             const from = Math.floor(new Date(curY, monthIdx, 1, 0, 0, 0).getTime() / 1000);
             const to = Math.floor(new Date(curY, monthIdx + 1, 0, 23, 59, 59).getTime() / 1000);
             
-            // ВАЖЛИВО: скидаємо суму місяця перед запитом
-            let currentMonthSum = 0;
+            let monthTotal = 0;
 
             for (const id of cfg.accountIds) {
                 const url = `${SERVER}/income?accountId=${id}&from=${from}&to=${to}`;
                 const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
                 
                 if (r.status === 429) {
-                    alert('Mono заблокував запити. Почекай 5 хвилин!');
-                    throw new Error('Rate limit');
+                    alert('Mono заблокував запит. Спробуй через 10 хвилин.');
+                    throw new Error('Limit');
                 }
 
                 const d = await r.json();
-                currentMonthSum += d.total || 0;
+                monthTotal += d.total || 0;
                 
-                // Пауза 3 секунди, щоб банк встигав "дихати"
-                await new Promise(res => setTimeout(res, 3000));
+                // ПАУЗА 4 СЕКУНДИ (це важливо для виходу з бану)
+                await new Promise(res => setTimeout(res, 4000));
             }
 
-            // Зберігаємо ТІЛЬКИ якщо отримали число (щоб не затерти старе нулем при помилці)
-            if (currentMonthSum > 0) {
-                db[`${curY}-${curT}-${i}`] = currentMonthSum.toFixed(2);
-                updateUI();
+            if (monthTotal > 0) {
+                const key = `${curY}-${curT}-${i}`;
+                db[key] = monthTotal.toFixed(2);
+                
+                // ЗБЕРІГАЄМО ОДРАЗУ після кожного місяця
+                localStorage.setItem('fop_db_v3', JSON.stringify(db));
+                updateUI(); 
             }
         }
-        localStorage.setItem('fop_db_v3', JSON.stringify(db));
     } catch(e) {
         console.error(e);
     } finally {
