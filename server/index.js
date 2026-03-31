@@ -8,45 +8,61 @@ app.use(cors());
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
 
-// Перевірка секретного ключа
-function auth(req, res) {
+// Мідлвар для перевірки ключа
+function auth(req, res, next) {
     if (req.headers['x-secret-key'] !== SECRET_KEY) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return false;
+        return res.status(401).json({ error: 'Unauthorized' });
     }
-    return true;
+    next();
 }
 
 // Отримати список рахунків
-app.get('/accounts', async (req, res) => {
-    if (!auth(req, res)) return;
-    const r = await fetch('https://api.monobank.ua/personal/client-info', {
-        headers: { 'X-Token': MONO_TOKEN }
-    });
-    const data = await r.json();
-    // Повертаємо тільки потрібні поля, без зайвого
-    const accounts = data.accounts.map(a => ({
-        id: a.id,
-        currencyCode: a.currencyCode, // 980=UAH, 840=USD, 978=EUR
-        type: a.type
-    }));
-    res.json(accounts);
+app.get('/accounts', auth, async (req, res) => {
+    try {
+        const r = await fetch('https://api.monobank.ua/personal/client-info', {
+            headers: { 'X-Token': MONO_TOKEN }
+        });
+        const data = await r.json();
+        
+        if (!data.accounts) {
+            return res.status(400).json({ error: data.errorDescription || 'Mono API Error' });
+        }
+
+        const accounts = data.accounts.map(a => ({
+            id: a.id,
+            currencyCode: a.currencyCode,
+            type: a.type
+        }));
+        res.json(accounts);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
-// Отримати суму надходжень за місяць
-app.get('/income', async (req, res) => {
-    if (!auth(req, res)) return;
+// Отримати суму надходжень
+app.get('/income', auth, async (req, res) => {
     const { accountId, from, to } = req.query;
-    const r = await fetch(
-        `https://api.monobank.ua/personal/statement/${accountId}/${from}/${to}`,
-        { headers: { 'X-Token': MONO_TOKEN } }
-    );
-    const data = await r.json();
-    // Тільки надходження (amount > 0), сума в копійках → гривні
-    const total = data
-        .filter(t => t.amount > 0)
-        .reduce((sum, t) => sum + t.amount, 0) / 100;
-    res.json({ total });
+    try {
+        const r = await fetch(
+            `https://api.monobank.ua/personal/statement/${accountId}/${from}/${to}`,
+            { headers: { 'X-Token': MONO_TOKEN } }
+        );
+        const data = await r.json();
+
+        // ПЕРЕВІРКА: якщо Mono повернув не масив, а помилку
+        if (!Array.isArray(data)) {
+            console.error('Mono Error or No Data:', data);
+            return res.json({ total: 0 }); 
+        }
+
+        const total = data
+            .filter(t => t.amount > 0)
+            .reduce((sum, t) => sum + t.amount, 0) / 100;
+        res.json({ total });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
-app.listen(3000, () => console.log('Running'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
