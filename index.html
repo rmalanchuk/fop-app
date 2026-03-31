@@ -609,55 +609,40 @@ function renderAccountList(accounts) {
     }).join('');
 }
 async function fetchFromMono() {
-    if (!cfg.secret || !cfg.accountIds?.length) { 
-        openSettings(); 
-        return; 
-    }
-    
+    if (!cfg.secret || !cfg.accountIds?.length) { openSettings(); return; }
     const btn = document.getElementById('mono-btn');
     const btnText = document.getElementById('mono-btn-text');
-    
     btn.disabled = true;
     btnText.textContent = '⏳ Опитування (чекай ~3 хв)...';
 
     try {
         const id = cfg.accountIds[0];
         const url = `${SERVER}/quarter-income?accountId=${id}&year=${curY}&quarter=${curT + 1}`;
-        
-        const r = await fetch(url, { 
-            headers: { 'x-secret-key': cfg.secret } 
-        });
-
-        if (!r.ok) throw new Error('Сервер відхилив запит або ще в бані');
+        const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
+        if (!r.ok) throw new Error('Сервер недоступний');
         
         const d = await r.json();
 
-        // Проходимо по результатах
         for (let i = 0; i < 3; i++) {
             const val = d[i];
+            const key = `${curY}-${curT}-${i}`;
             
-            if (val !== undefined && val !== "limit" && val !== 0 && !isNaN(val)) {
-                const key = `${curY}-${curT}-${i}`;
+            // ПРИМУСОВО ПЕРЕЗАПИСУЄМО. Якщо прийшло число - ставимо його.
+            if (val !== undefined && val !== "limit" && !isNaN(val)) {
                 db[key] = parseFloat(val).toFixed(2);
-                
-                // ВАЖЛИВО: Використовуємо той самий ключ fop_vFinal_v2, що і весь додаток
-                localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
             }
         }
 
-        // Оновлюємо таблицю та розрахунки
-        updateUI();
-        alert('✅ Дані завантажено і збережено в гривні!');
-
+        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+        updateUI(); 
+        showToast('✅ Оновлено');
     } catch(e) {
-        console.error('Помилка фронтенда:', e);
-        alert('❌ Помилка: ' + e.message);
+        alert('Помилка: ' + e.message);
     } finally {
         btn.disabled = false;
         btnText.textContent = 'Завантажити з Mono';
     }
 }
-
 
     function toggleAccount(id, el) {
         el.classList.toggle('selected');
