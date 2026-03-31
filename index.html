@@ -610,32 +610,37 @@ function renderAccountList(accounts) {
 }
 async function fetchFromMono() {
     if (!cfg.secret || !cfg.accountIds?.length) { openSettings(); return; }
+    
     const btn = document.getElementById('mono-btn');
     const btnText = document.getElementById('mono-btn-text');
+    
     btn.disabled = true;
-    btnText.textContent = '⏳ Опитування (чекай ~3 хв)...';
+    btnText.textContent = '⏳ Завантаження (5-10 сек)...'; // Змінили текст
 
     try {
         const id = cfg.accountIds[0];
         const url = `${SERVER}/quarter-income?accountId=${id}&year=${curY}&quarter=${curT + 1}`;
-        const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
-        if (!r.ok) throw new Error('Сервер недоступний');
         
-        const d = await r.json();
+        const r = await fetch(url, { 
+            headers: { 'x-secret-key': cfg.secret } 
+        });
+        
+        if (!r.ok) throw new Error('Помилка сервера або ліміт запитів');
+        
+        const d = await r.json(); // Отримуємо {0: сум1, 1: сум2, 2: сум3}
 
+        // Оновлюємо базу даних локально
         for (let i = 0; i < 3; i++) {
-            const val = d[i];
-            const key = `${curY}-${curT}-${i}`;
-            
-            // ПРИМУСОВО ПЕРЕЗАПИСУЄМО. Якщо прийшло число - ставимо його.
-            if (val !== undefined && val !== "limit" && !isNaN(val)) {
-                db[key] = parseFloat(val).toFixed(2);
+            if (d[i] !== undefined && d[i] !== "limit") {
+                const key = `${curY}-${curT}-${i}`;
+                db[key] = String(d[i]);
             }
         }
 
         localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-        updateUI(); 
-        showToast('✅ Оновлено');
+        updateUI();
+        showToast('✓ Дані оновлено за весь квартал');
+
     } catch(e) {
         alert('Помилка: ' + e.message);
     } finally {
@@ -643,7 +648,6 @@ async function fetchFromMono() {
         btnText.textContent = 'Завантажити з Mono';
     }
 }
-
     function toggleAccount(id, el) {
         el.classList.toggle('selected');
         if (!cfg.accountIds) cfg.accountIds = [];
