@@ -62,6 +62,12 @@ app.get('/quarter-income', async (req, res) => {
             if (Array.isArray(data)) {
                 for (const t of data) {
                     if (t.amount > 0) {
+                        console.log('ЗНАЙДЕНО ТРАНЗАКЦІЮ:', JSON.stringify({
+                            amount: t.amount,
+                            operationAmount: t.operationAmount,
+                            description: t.description,
+                            time: new Date(t.time * 1000).toISOString()
+                        }));
                         const usdAmount = Math.abs(t.operationAmount) / 100;
                         const rate = await getNbuRate(t.time);
                         const transactionUah = usdAmount * rate;
