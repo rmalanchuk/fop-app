@@ -609,51 +609,47 @@ function renderAccountList(accounts) {
     }).join('');
 }
 async function fetchFromMono() {
-    if (!cfg.secret || !cfg.accountIds?.length) { 
-        openSettings(); 
-        alert('Виберіть рахунки в налаштуваннях ⚙️');
-        return; 
-    }
+    if (!cfg.secret || !cfg.accountIds?.length) { openSettings(); return; }
     
     const btn = document.getElementById('mono-btn');
     const btnText = document.getElementById('mono-btn-text');
     btn.disabled = true;
-    btnText.textContent = '⏳ Опитуємо банк...';
+    btnText.textContent = '⏳ Очищення та запит...';
 
     try {
         const months = Q_MONTHS[curT];
 
         for (let i = 0; i < 3; i++) {
             const monthIdx = months[i];
-            // Чітко вказуємо початок і кінець місяця
             const from = Math.floor(new Date(curY, monthIdx, 1, 0, 0, 0).getTime() / 1000);
             const to = Math.floor(new Date(curY, monthIdx + 1, 0, 23, 59, 59).getTime() / 1000);
             
-            let monthTotal = 0;
+            // ВАЖЛИВО: скидаємо суму місяця перед запитом
+            let currentMonthSum = 0;
 
             for (const id of cfg.accountIds) {
                 const url = `${SERVER}/income?accountId=${id}&from=${from}&to=${to}`;
                 const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
                 
                 if (r.status === 429) {
-                    alert('Забагато запитів! Mono просить почекати. Спробуйте через хвилину.');
+                    alert('Mono заблокував запити. Почекай 5 хвилин!');
                     throw new Error('Rate limit');
                 }
 
                 const d = await r.json();
-                monthTotal += d.total || 0;
+                currentMonthSum += d.total || 0;
                 
-                // ПАУЗА 2 секунди між запитами для стабільності
-                await new Promise(res => setTimeout(res, 2000));
+                // Пауза 3 секунди, щоб банк встигав "дихати"
+                await new Promise(res => setTimeout(res, 3000));
             }
 
-            // Оновлюємо базу і UI поступово
-            db[`${curY}-${curT}-${i}`] = monthTotal.toFixed(2);
-            updateUI(); 
+            // Зберігаємо ТІЛЬКИ якщо отримали число (щоб не затерти старе нулем при помилці)
+            if (currentMonthSum > 0) {
+                db[`${curY}-${curT}-${i}`] = currentMonthSum.toFixed(2);
+                updateUI();
+            }
         }
-
         localStorage.setItem('fop_db_v3', JSON.stringify(db));
-        alert('✅ Дані завантажено в гривнях!');
     } catch(e) {
         console.error(e);
     } finally {
@@ -661,6 +657,7 @@ async function fetchFromMono() {
         btnText.textContent = 'Завантажити з Mono';
     }
 }
+
     function toggleAccount(id, el) {
         el.classList.toggle('selected');
         if (!cfg.accountIds) cfg.accountIds = [];
