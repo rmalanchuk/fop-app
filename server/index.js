@@ -9,7 +9,6 @@ app.use(express.json());
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
 
-// ── Авторизація ──
 function auth(req, res) {
     if (req.headers['x-secret-key'] !== SECRET_KEY) {
         res.status(401).send('Unauthorized');
@@ -47,10 +46,7 @@ async function fetchMonoStatement(accountId, from, to, attempt = 1) {
         { headers: { 'X-Token': MONO_TOKEN } }
     );
     if (r.status === 429) {
-        if (attempt > 3) {
-            console.log('Mono: забагато спроб');
-            return null;
-        }
+        if (attempt > 3) { console.log('Mono: забагато спроб'); return null; }
         const retryAfter = parseInt(r.headers.get('retry-after') || '61', 10);
         console.log(`Mono 429, чекаємо ${retryAfter}с (спроба ${attempt})`);
         await new Promise(res => setTimeout(res, retryAfter * 1000));
@@ -58,6 +54,38 @@ async function fetchMonoStatement(accountId, from, to, attempt = 1) {
     }
     if (!r.ok) throw new Error(`Mono HTTP ${r.status}`);
     return r.json();
+}
+
+// ── Порахувати дохід з масиву транзакцій ──
+// UAH рахунок: amount > 0, ігноруємо mcc=4829 (внутрішні перекази "поповнення картки")
+// USD рахунок: amount > 0, конвертуємо operationAmount по курсу НБУ
+async function calcIncome(transactions, currencyCode) {
+    if (!Array.isArray(transactions)) return 0;
+
+    const incoming = transactions.filter(t => {
+        if (t.amount <= 0) return false;
+        if (currencyCode === 980 && t.mcc === 4829) return false; // UAH: ігноруємо перекази
+        return true;
+    });
+
+    console.log(`  надходжень після фільтру: ${incoming.length}`);
+
+    let total = 0;
+    for (const t of incoming) {
+        const dateStr = new Date(t.time * 1000).toISOString().slice(0, 10);
+        if (currencyCode === 980) {
+            const uah = t.amount / 100;
+            console.log(`  UAH ${dateStr}: ${uah} ₴`);
+            total += uah;
+        } else {
+            const foreignAmount = Math.abs(t.operationAmount) / 100;
+            const rate = await getNbuRate(t.time);
+            const uah = foreignAmount * rate;
+            console.log(`  USD ${dateStr}: ${foreignAmount} × ${rate} = ${uah.toFixed(2)} ₴`);
+            total += uah;
+        }
+    }
+    return total;
 }
 
 // ── GET /accounts ──
@@ -80,20 +108,22 @@ app.get('/accounts', async (req, res) => {
 });
 
 // ── GET /quarter-income ──
-// UAH рахунок: надходження (amount > 0) напряму в гривні
-// USD/EUR рахунок: надходження (amount > 0), конвертуємо operationAmount по курсу НБУ на дату транзакції
+// accounts = JSON масив [{id, currencyCode}, ...]
+// Для кожного місяця тягне дані з усіх рахунків і сумує
 app.get('/quarter-income', async (req, res) => {
     if (!auth(req, res)) return;
 
-    const { accountId, year, quarter, months, currencyCode } = req.query;
-    const currency = parseInt(currencyCode) || 980;
+    const { year, quarter, months } = req.query;
+    let accounts;
+    try {
+        accounts = JSON.parse(req.query.accounts); // [{id, currencyCode}]
+    } catch(e) {
+        return res.status(400).send('Невірний формат accounts');
+    }
 
     const monthsArray = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
     const quarterMonths = monthsArray[parseInt(quarter) - 1];
-
-    const indicesToFetch = months
-        ? months.split(',').map(Number)
-        : [0, 1, 2];
+    const indicesToFetch = months ? months.split(',').map(Number) : [0, 1, 2];
 
     const results = {};
 
@@ -104,49 +134,34 @@ app.get('/quarter-income', async (req, res) => {
             const from = Math.floor(new Date(parseInt(year), m, 1).getTime() / 1000);
             const to   = Math.floor(new Date(parseInt(year), m + 1, 0, 23, 59, 59).getTime() / 1000);
 
-            console.log(`\n--- Місяць ${m + 1}/${year} (currency: ${currency}) ---`);
-            const data = await fetchMonoStatement(accountId, from, to);
-
-            if (data === null) {
-                results[idx] = 'limit';
-                continue;
-            }
-
-            if (!Array.isArray(data)) {
-                console.log('Неочікувана відповідь:', data);
-                results[idx] = 0;
-                continue;
-            }
-
-            // Тільки надходження — amount > 0
-            // Виводи мають від'ємний amount, ігноруємо повністю
-            const incoming = data.filter(t => t.amount > 0);
-            console.log(`Транзакцій всього: ${data.length}, надходжень: ${incoming.length}`);
-
+            console.log(`\n--- Місяць ${m + 1}/${year} ---`);
             let monthTotal = 0;
 
-            for (const t of incoming) {
-                const dateStr = new Date(t.time * 1000).toISOString().slice(0, 10);
+            for (const account of accounts) {
+                console.log(` Рахунок ${account.id.slice(0,10)}… (currency: ${account.currencyCode})`);
+                const data = await fetchMonoStatement(account.id, from, to);
 
-                if (currency === 980) {
-                    // UAH — amount вже в копійках гривні
-                    const uah = t.amount / 100;
-                    console.log(`UAH надходження ${dateStr}: ${uah} ₴`);
-                    monthTotal += uah;
-                } else {
-                    // Валюта — operationAmount в копійках валюти рахунку
-                    // НЕ використовуємо amount (курс банку), беремо курс НБУ
-                    const foreignAmount = Math.abs(t.operationAmount) / 100;
-                    const rate = await getNbuRate(t.time);
-                    const uah = foreignAmount * rate;
-                    console.log(`${foreignAmount} USD × ${rate} НБУ (${dateStr}) = ${uah.toFixed(2)} ₴`);
-                    monthTotal += uah;
+                if (data === null) {
+                    results[idx] = 'limit';
+                    break;
+                }
+
+                console.log(` транзакцій всього: ${Array.isArray(data) ? data.length : 'помилка'}`);
+                const income = await calcIncome(data, account.currencyCode);
+                monthTotal += income;
+
+                // Пауза між рахунками щоб не словити 429
+                if (accounts.indexOf(account) < accounts.length - 1) {
+                    await new Promise(res => setTimeout(res, 1100));
                 }
             }
 
-            results[idx] = Math.round(monthTotal * 100) / 100;
-            console.log(`Підсумок ${m + 1}/${year}: ${results[idx]} ₴`);
+            if (results[idx] !== 'limit') {
+                results[idx] = Math.round(monthTotal * 100) / 100;
+                console.log(`Підсумок ${m + 1}/${year}: ${results[idx]} ₴`);
+            }
 
+            // Пауза між місяцями
             if (i < indicesToFetch.length - 1) {
                 await new Promise(res => setTimeout(res, 1100));
             }
