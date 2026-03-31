@@ -607,8 +607,7 @@ function renderAccountList(accounts) {
             </div>
         `;
     }).join('');
-}
-async function fetchFromMono() {
+}async function fetchFromMono() {
     if (!cfg.secret || !cfg.accountIds?.length) { 
         openSettings(); 
         return; 
@@ -628,29 +627,30 @@ async function fetchFromMono() {
             headers: { 'x-secret-key': cfg.secret } 
         });
 
-        if (!r.ok) throw new Error('Сервер відхилив запит або ще в бані');
+        if (!r.ok) throw new Error('Сервер відхилив запит (можливо, ліміти)');
         
         const d = await r.json();
 
-        // Проходимо по результатах
         for (let i = 0; i < 3; i++) {
             const val = d[i];
             
-            if (val !== undefined && val !== "limit" && val !== 0 && !isNaN(val)) {
+            // ПРАВИЛЬНА УМОВА: оновлюємо, якщо це число (навіть якщо 0)
+            if (val !== undefined && val !== "limit" && !isNaN(val)) {
                 const key = `${curY}-${curT}-${i}`;
-                db[key] = parseFloat(val).toFixed(2);
                 
-                // ВАЖЛИВО: Використовуємо той самий ключ fop_vFinal_v2, що і весь додаток
-                localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+                // Примусово перетворюємо на рядок з двома знаками
+                db[key] = parseFloat(val).toFixed(2);
             }
         }
 
-        // Оновлюємо таблицю та розрахунки
+        // Зберігаємо оновлений об'єкт db
+        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+
         updateUI();
-        alert('✅ Дані завантажено і збережено в гривні!');
+        showToast('✅ Дані оновлено!');
 
     } catch(e) {
-        console.error('Помилка фронтенда:', e);
+        console.error('Помилка:', e);
         alert('❌ Помилка: ' + e.message);
     } finally {
         btn.disabled = false;
