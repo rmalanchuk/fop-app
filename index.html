@@ -613,9 +613,8 @@ async function fetchFromMono() {
     
     const btn = document.getElementById('mono-btn');
     const btnText = document.getElementById('mono-btn-text');
-    
     btn.disabled = true;
-    btnText.textContent = '⏳ Завантаження (5-10 сек)...'; // Змінили текст
+    btnText.textContent = '⏳ Оновлення...';
 
     try {
         const id = cfg.accountIds[0];
@@ -625,24 +624,26 @@ async function fetchFromMono() {
             headers: { 'x-secret-key': cfg.secret } 
         });
         
-        if (!r.ok) throw new Error('Помилка сервера або ліміт запитів');
+        if (!r.ok) throw new Error('Помилка сервера');
         
-        const d = await r.json(); // Отримуємо {0: сум1, 1: сум2, 2: сум3}
+        const d = await r.json();
 
-        // Оновлюємо базу даних локально
+        // Проходимо по 3 місяцях кварталу і зберігаємо дані
         for (let i = 0; i < 3; i++) {
-            if (d[i] !== undefined && d[i] !== "limit") {
+            const val = d[i];
+            // Зберігаємо, навіть якщо там 0, щоб затерти старі помилкові дані
+            if (val !== undefined && val !== "limit") {
                 const key = `${curY}-${curT}-${i}`;
-                db[key] = String(d[i]);
+                db[key] = String(val); 
             }
         }
 
         localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-        updateUI();
-        showToast('✓ Дані оновлено за весь квартал');
-
+        updateUI(); 
+        showToast('✓ Дані оновлено');
     } catch(e) {
         alert('Помилка: ' + e.message);
+        console.error(t);
     } finally {
         btn.disabled = false;
         btnText.textContent = 'Завантажити з Mono';
