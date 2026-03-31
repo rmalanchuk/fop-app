@@ -11,7 +11,9 @@ const SECRET_KEY = process.env.SECRET_KEY;
 
 const nbuRateCache = {};
 
-// ✅ локальна дата без UTC бага
+// ─────────────────────────────
+// ДАТА БЕЗ UTC БАГА
+// ─────────────────────────────
 function formatDateLocal(timestamp) {
     const d = new Date(timestamp * 1000);
     return [
@@ -21,6 +23,9 @@ function formatDateLocal(timestamp) {
     ].join('');
 }
 
+// ─────────────────────────────
+// КУРС НБУ
+// ─────────────────────────────
 async function getNbuRate(timestamp) {
     const yyyymmdd = formatDateLocal(timestamp);
 
@@ -40,6 +45,9 @@ async function getNbuRate(timestamp) {
     }
 }
 
+// ─────────────────────────────
+// MONO API
+// ─────────────────────────────
 async function fetchMonoStatement(accountId, from, to) {
     const r = await fetch(
         `https://api.monobank.ua/personal/statement/${accountId}/${from}/${to}`,
@@ -50,9 +58,9 @@ async function fetchMonoStatement(accountId, from, to) {
     return r.json();
 }
 
-// ────────────────
-// АККАУНТИ (ФОП)
-// ────────────────
+// ─────────────────────────────
+// АККАУНТИ (тільки ФОП)
+// ─────────────────────────────
 app.get('/accounts', async (req, res) => {
     if (req.headers['x-secret-key'] !== SECRET_KEY) return res.status(401).send('No');
 
@@ -62,15 +70,14 @@ app.get('/accounts', async (req, res) => {
 
     const data = await r.json();
 
-    // ✅ тільки ФОП (без обмеження по валюті)
     const fopAccounts = (data.accounts || []).filter(a => a.type === 'fop');
 
     res.json(fopAccounts);
 });
 
-// ────────────────
-// ДОХІД
-// ────────────────
+// ─────────────────────────────
+// ДОХІД ПО КВАРТАЛУ
+// ─────────────────────────────
 app.get('/quarter-income', async (req, res) => {
     if (req.headers['x-secret-key'] !== SECRET_KEY) return res.status(401).send('No');
 
@@ -108,15 +115,13 @@ app.get('/quarter-income', async (req, res) => {
                         Math.abs(t.amount) > Math.abs(max.amount) ? t : max
                     );
 
-                    const amount = Math.abs(mainTx.amount) / 100;
-
-                    // ✅ універсальна логіка валют
-                    if (mainTx.currencyCode === 840) {
-                        const rate = await getNbuRate(mainTx.time);
-                        monthTotalUah = amount * rate;
-                    } else if (mainTx.currencyCode === 980) {
-                        monthTotalUah = amount;
+                    // 🔥 ГОЛОВНИЙ ФІКС
+                    // якщо mono вже дав гривні → беремо їх
+                    if (mainTx.operationAmount && mainTx.currencyCode === 980) {
+                        monthTotalUah = Math.abs(mainTx.operationAmount) / 100;
                     } else {
+                        // інакше конвертуємо через НБУ
+                        const amount = Math.abs(mainTx.amount) / 100;
                         const rate = await getNbuRate(mainTx.time);
                         monthTotalUah = amount * rate;
                     }
