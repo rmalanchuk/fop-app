@@ -46,19 +46,31 @@ app.get('/quarter-income', auth, async (req, res) => {
             }
 
             const monthTotal = data
-    .filter(t => t.amount > 0)
-    .reduce((sum, t) => {
-        // Якщо є operationAmount — це ЗАВЖДИ гривня для валютних рахунків.
-        // Якщо його немає — беремо звичайний amount.
-        const val = t.operationAmount ? Math.abs(t.operationAmount) : Math.abs(t.amount);
-        return sum + val;
-    }, 0) / 100;
+                .filter(t => t.amount > 0)
+                .reduce((sum, t) => {
+                    // НАЙБІЛЬШ НАДІЙНА ЛОГІКА ГРИВНІ:
+                    // 1. Якщо валюта операції — гривня (980), беремо operationAmount.
+                    // 2. Якщо operationAmount немає, але є звичайний amount — беремо його.
+                    let amountInGryvnia = 0;
+                    
+                    if (t.operationCode === 980 || t.currencyCode === 980) {
+                        // Якщо це транзакція в грн, беремо її суму
+                        amountInGryvnia = Math.abs(t.amount);
+                    } else if (t.operationAmount) {
+                        // Якщо це валюта (USD), беремо гривневий еквівалент
+                        amountInGryvnia = Math.abs(t.operationAmount);
+                    } else {
+                        // Резервний варіант
+                        amountInGryvnia = Math.abs(t.amount);
+                    }
+                    
+                    return sum + amountInGryvnia;
+                }, 0) / 100;
 
             results[i] = monthTotal;
 
-            // Пауза між місяцями (крім останнього)
             if (i < 2) {
-                console.log('Ліміт Mono API: чекаємо 61 сек...');
+                console.log('Чекаємо 61 сек для наступного місяця...');
                 await new Promise(res => setTimeout(res, 61000));
             }
         }
