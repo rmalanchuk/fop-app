@@ -549,53 +549,6 @@
         arrow.classList.toggle('open', !open);
     }
 
-    // ── Mono integration ──
-    async function fetchFromMono() {
-        if (!cfg.secret) { openSettings(); showToast('⚙️ Спочатку налаштуй підключення'); return; }
-        if (!cfg.accountIds || cfg.accountIds.length === 0) { openSettings(); showToast('⚙️ Вибери рахунки в налаштуваннях'); return; }
-
-        const btn = document.getElementById('mono-btn');
-        const btnText = document.getElementById('mono-btn-text');
-        btn.disabled = true;
-        btnText.textContent = 'Завантаження...';
-
-        try {
-            const months = Q_MONTHS[curT]; // [0,1,2] or [3,4,5] etc
-            const results = [];
-
-            for (let mi = 0; mi < 3; mi++) {
-                const monthIdx = months[mi]; // 0-based month of year
-                const from = new Date(curY, monthIdx, 1);
-                const to = new Date(curY, monthIdx + 1, 0, 23, 59, 59);
-
-                // Sum across all selected accounts
-                let monthTotal = 0;
-                for (const accountId of cfg.accountIds) {
-                    const url = `${SERVER}/income?accountId=${accountId}&from=${Math.floor(from.getTime()/1000)}&to=${Math.floor(to.getTime()/1000)}`;
-                    const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
-                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                    const data = await r.json();
-                    monthTotal += data.total || 0;
-                }
-                results.push(monthTotal);
-            }
-
-            // Save results
-            for (let i = 0; i < 3; i++) {
-                const key = `${curY}-${curT}-${i}`;
-                db[key] = results[i].toFixed(2);
-            }
-            localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-            updateUI();
-            showToast('✓ Дані завантажено з Mono');
-        } catch(e) {
-            console.error(e);
-            showToast('✗ Помилка підключення до сервера');
-        } finally {
-            btn.disabled = false;
-            btnText.textContent = 'Завантажити з Mono';
-        }
-    }
 
     // ── Settings ──
     function openSettings() {
@@ -632,27 +585,92 @@
 
     const CURRENCY_NAMES = { 980: 'UAH ₴', 840: 'USD $', 978: 'EUR €' };
 
-    function renderAccountList(accounts) {
-        const list = document.getElementById('account-list');
-        if (!accounts || accounts.length === 0) {
-            list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Рахунків не знайдено</div>';
-            return;
-        }
-        list.innerHTML = accounts.map(a => {
-            const selected = (cfg.accountIds || []).includes(a.id);
-            const currency = CURRENCY_NAMES[a.currencyCode] || `Code ${a.currencyCode}`;
-            return `
-                <div class="account-item ${selected ? 'selected' : ''}" onclick="toggleAccount('${a.id}', this)">
-                    <div class="account-item-left">
-                        <span class="account-currency">${currency}</span>
-                        <span class="account-id">${a.id.slice(0,16)}…</span>
-                    </div>
-                    <div class="account-check">✓</div>
+function renderAccountList(accounts) {
+    const list = document.getElementById('account-list');
+    if (!accounts || accounts.length === 0) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Рахунків не знайдено</div>';
+        return;
+    }
+    list.innerHTML = accounts.map(a => {
+        const selected = (cfg.accountIds || []).includes(a.id);
+        const currency = CURRENCY_NAMES[a.currencyCode] || `Code ${a.currencyCode}`;
+        // Додаємо мітку ФОП, якщо тип рахунку 'fop'
+        const label = a.type === 'fop' ? '<b style="color:var(--success)">[ФОП]</b>' : `(${a.type})`;
+        
+        return `
+            <div class="account-item ${selected ? 'selected' : ''}" onclick="toggleAccount('${a.id}', this)">
+                <div class="account-item-left">
+                    <span class="account-currency">${currency} ${label}</span>
+                    <span class="account-id">${a.id.slice(0,16)}…</span>
                 </div>
-            `;
-        }).join('');
+                <div class="account-check">✓</div>
+            </div>
+        `;
+    }).join('');
+}
+async function fetchFromMono() {
+    // 1. Перевірка налаштувань
+    if (!cfg.secret || !cfg.accountIds || cfg.accountIds.length === 0) {
+        openSettings(); // Відкриваємо модалку, якщо не налаштовано
+        alert('Спочатку виберіть рахунки в налаштуваннях ⚙️');
+        return;
     }
 
+    const btn = document.getElementById('mono-btn');
+    const btnText = document.getElementById('mono-btn-text') || { textContent: '' };
+    
+    // Блокуємо кнопку на час завантаження
+    btn.disabled = true;
+    const originalText = btnText.textContent;
+    if(btnText) btnText.textContent = 'Завантаження...';
+
+    try {
+        const months = Q_MONTHS[curT]; // Беремо місяці поточного кварталу
+
+        for (let i = 0; i < 3; i++) {
+            const monthIdx = months[i];
+            const from = new Date(curY, monthIdx, 1);
+            const to = new Date(curY, monthIdx + 1, 0, 23, 59, 59);
+
+            let monthTotal = 0;
+
+            // Запит для кожного вибраного рахунку (ФОП, валютний тощо)
+            for (const accountId of cfg.accountIds) {
+                const url = `${SERVER}/income?accountId=${accountId}&from=${Math.floor(from.getTime()/1000)}&to=${Math.floor(to.getTime()/1000)}`;
+                
+                const r = await fetch(url, { 
+                    headers: { 'x-secret-key': cfg.secret } 
+                });
+                
+                const data = await r.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                monthTotal += data.total || 0;
+                
+                // Невелика пауза між запитами (Anti-spam)
+                await new Promise(res => setTimeout(res, 600));
+            }
+
+            // Записуємо результат у базу даних
+            db[`${curY}-${curT}-${i}`] = monthTotal.toFixed(2);
+        }
+
+        // Зберігаємо в локальну пам'ять браузера
+        localStorage.setItem('fop_db_v3', JSON.stringify(db));
+        
+        // Оновлюємо цифри на екрані
+        updateUI();
+        alert('✅ Дані з Monobank успішно завантажені');
+
+    } catch (e) {
+        console.error('Помилка завантаження:', e);
+        alert('❌ Помилка: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        if(btnText) btnText.textContent = originalText;
+    }
+}
     function toggleAccount(id, el) {
         el.classList.toggle('selected');
         if (!cfg.accountIds) cfg.accountIds = [];
