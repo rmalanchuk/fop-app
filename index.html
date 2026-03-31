@@ -651,11 +651,7 @@ async function fetchFromMono() {
     btnText.textContent = `⏳ Завантаження (${toFetch.length} міс. з Mono)...`;
 
     try {
-        // Шукаємо USD FOP рахунок тільки якщо масив accounts існує
-        const usdFopAccount = (cfg.accounts || []).find(a => a.type === 'fop' && (a.currencyCode === 840 || a.currencyCode === '840'));
-        
-        // Вибираємо ID: або знайдений валютний, або перший зі списку
-        const id = usdFopAccount ? usdFopAccount.id : cfg.accountIds[0];
+        const id = cfg.accountIds[0];
         const url = `${SERVER}/quarter-income?accountId=${id}&year=${curY}&quarter=${curT + 1}&months=${toFetch.join(',')}`;
         const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
         if (!r.ok) throw new Error('Сервер недоступний');
