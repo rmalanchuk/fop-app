@@ -617,66 +617,68 @@ async function fetchFromMono() {
 
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-based
+    const currentMonth = now.getMonth();
 
     const quarterMonths = Q_MONTHS[curT];
 
-    // Визначаємо які місяці треба тягнути з Mono
     const toFetch = [];
+
     for (let i = 0; i < 3; i++) {
         const monthIdx = quarterMonths[i];
-        const isCurrentMonth = (parseInt(curY) === currentYear && monthIdx === currentMonth);
+
+        const isFutureMonth =
+            curY > currentYear ||
+            (curY === currentYear && monthIdx > currentMonth);
+
         const cacheKey = `mono_cache_${curY}_${curT}_${i}`;
         const cached = localStorage.getItem(cacheKey);
 
-        if (cached !== null && !isCurrentMonth) {
-            // Місяць закритий і є кеш — беремо одразу
+        if (cached && !isFutureMonth) {
             db[`${curY}-${curT}-${i}`] = JSON.parse(cached);
-            console.log(`Місяць ${i + 1} з кешу: ${JSON.parse(cached)}`);
-        } else {
+        } else if (!isFutureMonth) {
             toFetch.push(i);
         }
     }
 
-    // Всі місяці вже в кеші
     if (toFetch.length === 0) {
         localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
         updateUI();
-        showToast('✅ Дані з кешу');
         btn.disabled = false;
         btnText.textContent = 'Завантажити з Mono';
         return;
     }
 
-    btnText.textContent = `⏳ Завантаження (${toFetch.length} міс. з Mono)...`;
+    btnText.textContent = `⏳ Завантаження...`;
 
     try {
         const id = cfg.accountIds[0];
+
         const url = `${SERVER}/quarter-income?accountId=${id}&year=${curY}&quarter=${curT + 1}&months=${toFetch.join(',')}`;
-        const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
-        if (!r.ok) throw new Error('Сервер недоступний');
+
+        const r = await fetch(url, {
+            headers: { 'x-secret-key': cfg.secret }
+        });
 
         const d = await r.json();
 
         for (const i of toFetch) {
             const val = d[i];
-            if (val !== undefined && val !== "limit" && !isNaN(val)) {
+
+            if (val !== undefined && !isNaN(val)) {
                 const rounded = parseFloat(val).toFixed(2);
+
                 db[`${curY}-${curT}-${i}`] = rounded;
 
-                // Кешуємо тільки закриті місяці
-                const monthIdx = quarterMonths[i];
-                const isCurrentMonth = (parseInt(curY) === currentYear && monthIdx === currentMonth);
-                if (!isCurrentMonth) {
-                    localStorage.setItem(`mono_cache_${curY}_${curT}_${i}`, JSON.stringify(rounded));
-                    console.log(`Місяць ${i + 1} збережено в кеш`);
-                }
+                localStorage.setItem(
+                    `mono_cache_${curY}_${curT}_${i}`,
+                    JSON.stringify(rounded)
+                );
             }
         }
 
         localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
         updateUI();
-        showToast('✅ Оновлено');
+
     } catch(e) {
         alert('Помилка: ' + e.message);
     } finally {
@@ -684,7 +686,6 @@ async function fetchFromMono() {
         btnText.textContent = 'Завантажити з Mono';
     }
 }
-
     function toggleAccount(id, el) {
         el.classList.toggle('selected');
         if (!cfg.accountIds) cfg.accountIds = [];
