@@ -9,7 +9,7 @@ app.use(express.json());
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
 
-// 1. Тягнемо курс на конкретну дату з НБУ
+// Тягнемо курс USD на конкретну дату з НБУ
 async function getNbuRate(timestamp) {
     const date = new Date(timestamp * 1000);
     const yyyymmdd = date.toISOString().split('T')[0].replace(/-/g, '');
@@ -20,13 +20,14 @@ async function getNbuRate(timestamp) {
         console.log(`Курс НБУ на ${yyyymmdd}: ${rate}`);
         return rate;
     } catch (e) {
+        console.log(`Помилка НБУ для ${yyyymmdd}, використовую fallback 41.5`);
         return 41.5;
     }
 }
 
 app.get('/quarter-income', async (req, res) => {
     if (req.headers['x-secret-key'] !== SECRET_KEY) return res.status(401).send('No');
-    
+
     const { accountId, year, quarter } = req.query;
     const monthsArray = [ [0,1,2], [3,4,5], [6,7,8], [9,10,11] ];
     const months = monthsArray[parseInt(quarter) - 1];
@@ -45,29 +46,13 @@ app.get('/quarter-income', async (req, res) => {
             if (r.status === 429) { results[i] = "limit"; continue; }
             const data = await r.json();
 
-            // Логування першої транзакції для діагностики
-            if (Array.isArray(data) && data.length > 0) {
-                const t = data[0];
-                console.log('Перша транзакція з Mono:', JSON.stringify({
-                    amount: t.amount,
-                    operationAmount: t.operationAmount,
-                    currencyCode: t.currencyCode,
-                    operationCurrencyCode: t.operationCurrencyCode,
-                    time: new Date(t.time * 1000).toISOString()
-                }));
-            }
-            
             let monthTotalUah = 0;
 
             if (Array.isArray(data)) {
                 for (const t of data) {
+                    // Надходження на гривневий рахунок з доларового ФОП
+                    // amount > 0 — це зарахування, operationAmount — реальна сума в USD (центах)
                     if (t.amount > 0) {
-                        console.log('ЗНАЙДЕНО ТРАНЗАКЦІЮ:', JSON.stringify({
-                            amount: t.amount,
-                            operationAmount: t.operationAmount,
-                            description: t.description,
-                            time: new Date(t.time * 1000).toISOString()
-                        }));
                         const usdAmount = Math.abs(t.operationAmount) / 100;
                         const rate = await getNbuRate(t.time);
                         const transactionUah = usdAmount * rate;
@@ -79,6 +64,7 @@ app.get('/quarter-income', async (req, res) => {
 
             results[i] = Math.round(monthTotalUah * 100) / 100;
 
+            // Пауза 61 сек між місяцями через ліміти Mono
             if (i < 2) await new Promise(res => setTimeout(res, 61000));
         }
         res.json(results);
