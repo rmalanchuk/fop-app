@@ -46,19 +46,13 @@ app.get('/quarter-income', auth, async (req, res) => {
             }
 
             const monthTotal = data
-                .filter(t => t.amount > 0)
-                .reduce((sum, t) => {
-                    // ПРІОРИТЕТ ГРИВНІ:
-                    // Якщо в транзакції є operationAmount і він відрізняється від суми в валюті,
-                    // значить це гривневий еквівалент. Беремо його.
-                    let amountInGryvnia = Math.abs(t.amount);
-                    
-                    if (t.operationAmount && Math.abs(t.operationAmount) !== Math.abs(t.amount)) {
-                        amountInGryvnia = Math.abs(t.operationAmount);
-                    }
-                    
-                    return sum + amountInGryvnia;
-                }, 0) / 100;
+    .filter(t => t.amount > 0)
+    .reduce((sum, t) => {
+        // Якщо є operationAmount — це ЗАВЖДИ гривня для валютних рахунків.
+        // Якщо його немає — беремо звичайний amount.
+        const val = t.operationAmount ? Math.abs(t.operationAmount) : Math.abs(t.amount);
+        return sum + val;
+    }, 0) / 100;
 
             results[i] = monthTotal;
 
