@@ -609,59 +609,57 @@ function renderAccountList(accounts) {
     }).join('');
 }
 async function fetchFromMono() {
-    // 1. Перевірка налаштувань
     if (!cfg.secret || !cfg.accountIds || cfg.accountIds.length === 0) {
-        openSettings(); // Відкриваємо модалку, якщо не налаштовано
+        openSettings();
         alert('Спочатку виберіть рахунки в налаштуваннях ⚙️');
         return;
     }
 
     const btn = document.getElementById('mono-btn');
-    const btnText = document.getElementById('mono-btn-text') || { textContent: '' };
+    const btnText = document.getElementById('mono-btn-text');
     
-    // Блокуємо кнопку на час завантаження
     btn.disabled = true;
-    const originalText = btnText.textContent;
+    const originalText = btnText ? btnText.textContent : 'Завантажити з Mono';
     if(btnText) btnText.textContent = 'Завантаження...';
 
     try {
-        const months = Q_MONTHS[curT]; // Беремо місяці поточного кварталу
+        const months = Q_MONTHS[curT]; 
 
         for (let i = 0; i < 3; i++) {
             const monthIdx = months[i];
-            const from = new Date(curY, monthIdx, 1);
-            const to = new Date(curY, monthIdx + 1, 0, 23, 59, 59);
+            
+            // Чітко встановлюємо початок місяця (00:00:00)
+            const fromDate = new Date(curY, monthIdx, 1, 0, 0, 0);
+            // Чітко встановлюємо кінець місяця (23:59:59)
+            const toDate = new Date(curY, monthIdx + 1, 0, 23, 59, 59);
 
             let monthTotal = 0;
 
-            // Запит для кожного вибраного рахунку (ФОП, валютний тощо)
             for (const accountId of cfg.accountIds) {
-                const url = `${SERVER}/income?accountId=${accountId}&from=${Math.floor(from.getTime()/1000)}&to=${Math.floor(to.getTime()/1000)}`;
+                const fromUnix = Math.floor(fromDate.getTime() / 1000);
+                const toUnix = Math.floor(toDate.getTime() / 1000);
+                
+                const url = `${SERVER}/income?accountId=${accountId}&from=${fromUnix}&to=${toUnix}`;
                 
                 const r = await fetch(url, { 
                     headers: { 'x-secret-key': cfg.secret } 
                 });
                 
                 const data = await r.json();
-                
                 if (data.error) throw new Error(data.error);
                 
                 monthTotal += data.total || 0;
                 
-                // Невелика пауза між запитами (Anti-spam)
-                await new Promise(res => setTimeout(res, 600));
+                // Збільшив паузу до 1000мс для стабільності на Render
+                await new Promise(res => setTimeout(res, 1000));
             }
 
-            // Записуємо результат у базу даних
             db[`${curY}-${curT}-${i}`] = monthTotal.toFixed(2);
         }
 
-        // Зберігаємо в локальну пам'ять браузера
         localStorage.setItem('fop_db_v3', JSON.stringify(db));
-        
-        // Оновлюємо цифри на екрані
         updateUI();
-        alert('✅ Дані з Monobank успішно завантажені');
+        alert('✅ Дані за квартал успішно завантажені');
 
     } catch (e) {
         console.error('Помилка завантаження:', e);
