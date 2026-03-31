@@ -48,24 +48,32 @@ app.get('/income', auth, async (req, res) => {
         });
         const data = await r.json();
 
-        if (!Array.isArray(data)) return res.json({ total: 0 });
+        if (!Array.isArray(data)) {
+            console.error('Mono Error:', data);
+            return res.status(429).json({ error: 'Limit or Error' });
+        }
 
-        const total = data
-            .filter(t => t.amount > 0) // Беремо тільки надходження
+        const totalInGryvnia = data
+            .filter(t => t.amount > 0) // Тільки надходження
             .reduce((sum, t) => {
-                // Якщо рахунок валютний (USD/EUR), Mono віддає гривневий еквівалент 
-                // у полі operationAmount, якщо транзакція була маркована валютою 980 (UAH) 
-                // або через внутрішню конвертацію.
+                // ЛОГІКА:
+                // 1. Якщо валюта рахунку НЕ гривня (не 980), то сума в гривнях 
+                // за курсом НБУ лежить в operationAmount.
+                // 2. Якщо валюта рахунку гривня (980), беремо amount.
                 
-                // Для валютних входів (як твій SWIFT), поле operationAmount зазвичай 
-                // містить суму в гривнях, якщо запит іде до гривневого представлення.
-                // Але на практиці для ФОП-валюти ідеальним є поле:
-                const realAmount = (t.currencyCode === 980) ? t.amount : Math.abs(t.operationAmount);
+                let currentAmount;
                 
-                return sum + realAmount;
+                // Перевіряємо, чи є дані про конвертацію (operationAmount)
+                if (t.operationAmount && t.currencyCode !== 980) {
+                    currentAmount = Math.abs(t.operationAmount);
+                } else {
+                    currentAmount = Math.abs(t.amount);
+                }
+
+                return sum + currentAmount;
             }, 0) / 100;
 
-        res.json({ total });
+        res.json({ total: totalInGryvnia });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
