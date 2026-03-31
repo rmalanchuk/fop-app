@@ -12,7 +12,7 @@ const SECRET_KEY = process.env.SECRET_KEY;
 const nbuRateCache = {};
 
 // ─────────────────────────────
-// ДАТА БЕЗ UTC БАГА
+// ДАТА (БЕЗ UTC БАГА)
 // ─────────────────────────────
 function formatDateLocal(timestamp) {
     const d = new Date(timestamp * 1000);
@@ -76,7 +76,7 @@ app.get('/accounts', async (req, res) => {
 });
 
 // ─────────────────────────────
-// ДОХІД
+// ДОХІД (ГОЛОВНА ЛОГІКА)
 // ─────────────────────────────
 app.get('/quarter-income', async (req, res) => {
     if (req.headers['x-secret-key'] !== SECRET_KEY) return res.status(401).send('No');
@@ -105,29 +105,25 @@ app.get('/quarter-income', async (req, res) => {
 
             if (Array.isArray(data)) {
 
+                // тільки надходження
                 const incoming = data.filter(t => t.amount > 0);
 
                 if (incoming.length > 0) {
 
+                    // беремо найбільшу транзакцію
                     const mainTx = incoming.reduce((max, t) =>
                         Math.abs(t.amount) > Math.abs(max.amount) ? t : max
                     );
 
-                    const amount = Math.abs(mainTx.amount) / 100;
-                    const opAmount = Math.abs(mainTx.operationAmount || 0) / 100;
+                    // 🔥 ЄДИНА ПРАВИЛЬНА ФОРМУЛА
+                    const usdAmount = Math.abs(mainTx.amount) / 100;
+                    const rate = await getNbuRate(mainTx.time);
 
-                    // 🔥 КЛЮЧОВА ЛОГІКА
-                    // якщо operationAmount значно більший → це вже гривні
-                    if (opAmount > amount * 2) {
-                        monthTotalUah = opAmount;
-                    } else {
-                        const rate = await getNbuRate(mainTx.time);
-                        monthTotalUah = amount * rate;
-                    }
+                    monthTotalUah = usdAmount * rate;
 
                     console.log({
-                        amount,
-                        opAmount,
+                        usdAmount,
+                        rate,
                         result: monthTotalUah
                     });
                 }
