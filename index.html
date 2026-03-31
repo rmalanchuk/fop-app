@@ -632,32 +632,32 @@ async function fetchFromMono() {
         
         const d = await r.json();
 
-        // Проходимо по результатах (0, 1, 2 місяці кварталу)
+        // Проходимо по результатах
         for (let i = 0; i < 3; i++) {
             const val = d[i];
             
-            // Записуємо ТІЛЬКИ якщо прийшло реальне число > 0 і не помилка ліміту
             if (val !== undefined && val !== "limit" && val !== 0 && !isNaN(val)) {
                 const key = `${curY}-${curT}-${i}`;
                 db[key] = parseFloat(val).toFixed(2);
                 
-                // Зберігаємо в пам'ять ТЕЛЕФОНУ негайно для кожного місяця
-                localStorage.setItem('fop_db_v3', JSON.stringify(db));
+                // ВАЖЛИВО: Використовуємо той самий ключ fop_vFinal_v2, що і весь додаток
+                localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
             }
         }
 
-        // Оновлюємо таблицю на екрані
+        // Оновлюємо таблицю та розрахунки
         updateUI();
-        alert('✅ Дані завантажено! Якщо за якийсь місяць пусто — Mono ще тримає ліміт.');
+        alert('✅ Дані завантажено і збережено в гривні!');
 
     } catch(e) {
         console.error('Помилка фронтенда:', e);
-        alert('❌ Помилка: ' + e.message + '. Спробуй пізніше.');
+        alert('❌ Помилка: ' + e.message);
     } finally {
         btn.disabled = false;
         btnText.textContent = 'Завантажити з Mono';
     }
 }
+
 
     function toggleAccount(id, el) {
         el.classList.toggle('selected');
