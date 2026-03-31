@@ -49,7 +49,7 @@
         .input-amt:focus { border-color: var(--accent); background: #eff6ff; }
         .input-amt.filled { border-color: var(--success); background: #f0fdf4; }
 
-        /* Стилі результатів та кнопок оплати */
+        /* Results & Payment Styles */
         .results-area { background: var(--ink); border-radius: 20px; margin: 0 16px 16px; padding: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
         .results-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 14px; font-family: 'Unbounded', sans-serif; }
         .result-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer; }
@@ -196,9 +196,9 @@
         <div class="setting-group">
             <span class="setting-label">Рахунки Mono</span>
             <div class="account-list" id="account-list">
-                <div style="color:var(--muted);font-size:13px;padding:8px 0;">Введи ключ і натисни "Завантажити рахунки"</div>
+                <div style="color:var(--muted);font-size:13px;padding:8px 0;">Завантажте рахунки...</div>
             </div>
-            <button class="fetch-accounts-btn" onclick="fetchAccounts()">Завантажити рахунки</button>
+            <button class="fetch-accounts-btn" onclick="fetchAccounts()">Оновити рахунки</button>
         </div>
         <button class="save-btn" onclick="saveSettings()">Зберегти все</button>
     </div>
@@ -243,25 +243,34 @@
     const Q_MONTHS = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
 
     let db  = JSON.parse(localStorage.getItem('fop_vFinal_v2')) || {};
-    // Додаємо нові поля в конфиг
     let cfg = JSON.parse(localStorage.getItem('fop_cfg')) || { 
         secret: '', accounts: [], inn: '', ibanEP: '', ibanVZ: '' 
     };
 
     let currentIbanToCopy = '';
 
-    function changeYear(delta) {
+    // Глобальні функції для доступу з HTML
+    window.changeYear = function(delta) {
         curY = (curY || 2025) + delta;
         document.getElementById('yearDisplay').textContent = curY;
         updateUI();
-    }
+    };
 
-    function switchTab(t, el) {
+    window.switchTab = function(t, el) {
         curT = t;
         document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
         el.classList.add('active');
         updateUI();
-    }
+    };
+
+    window.saveVal = function(idx, val) {
+        const clean = val.replace(',', '.');
+        db[`${curY}-${curT}-${idx}`] = clean;
+        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+        const inp = document.getElementById(`inp-${idx}`);
+        if (inp) inp.classList.toggle('filled', !!clean);
+        calculate();
+    };
 
     function updateUI() {
         document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => `
@@ -277,15 +286,6 @@
         calculate();
     }
 
-    function saveVal(idx, val) {
-        const clean = val.replace(',', '.');
-        db[`${curY}-${curT}-${idx}`] = clean;
-        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-        const inp = document.getElementById(`inp-${idx}`);
-        if (inp) inp.classList.toggle('filled', !!clean);
-        calculate();
-    }
-
     function calculate() {
         let qSums = [0,0,0,0];
         for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
@@ -293,152 +293,153 @@
         let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
         const ep = { tot: cumInc * 0.05, prv: prvInc * 0.05, pay: (cumInc * 0.05) - (prvInc * 0.05) };
         const vz = { tot: cumInc * 0.01, prv: prvInc * 0.01, pay: (cumInc * 0.01) - (prvInc * 0.01) };
-        document.getElementById('pay-ep').innerText = ep.pay.toFixed(2) + ' ₴';
+        
+        document.getElementById('pay-ep').innerText = Math.max(0, ep.pay).toFixed(2) + ' ₴';
         const vzRow = document.getElementById('vz-row');
-        if(curY >= 2025) { vzRow.style.display = 'flex'; document.getElementById('pay-vz').innerText = vz.pay.toFixed(2) + ' ₴'; }
-        else { vzRow.style.display = 'none'; }
+        if(curY >= 2025) { 
+            vzRow.style.display = 'flex'; 
+            document.getElementById('pay-vz').innerText = Math.max(0, vz.pay).toFixed(2) + ' ₴'; 
+        } else { 
+            vzRow.style.display = 'none'; 
+        }
         
         let detHtml = `
             <div class="field-item"><div class="f-num dash">—</div><div class="f-body"><span class="f-sum">${qSums[curT].toFixed(2)} ₴</span><span class="f-desc">Зароблено за квартал</span></div></div>
-            <div class="field-item"><div class="f-num">6</div><div class="f-body"><span class="f-sum">${cumInc.toFixed(2)} ₴</span><span class="f-desc">Всього зароблено за існуючий рік</span></div></div>
-            <div class="field-item"><div class="f-num">8</div><div class="f-body"><span class="f-sum">${cumInc.toFixed(2)} ₴</span><span class="f-desc">Всього зароблено за існуючий рік</span></div></div>
-            <div class="field-item"><div class="f-num">11</div><div class="f-body"><span class="f-sum">${ep.tot.toFixed(2)} ₴</span><span class="f-desc">Нараховано податків на загальну суму</span></div></div>
-            <div class="field-item"><div class="f-num">12</div><div class="f-body"><span class="f-sum">${ep.tot.toFixed(2)} ₴</span><span class="f-desc">Нараховано податків на загальну суму</span></div></div>
-            <div class="field-item"><div class="f-num">13</div><div class="f-body"><span class="f-sum">${ep.prv.toFixed(2)} ₴</span><span class="f-desc">За попередні квартали заплачено</span></div></div>
-            <div class="field-item"><div class="f-num">14</div><div class="f-body"><span class="f-sum">${ep.pay.toFixed(2)} ₴</span><span class="f-desc">Потрібно сплатити податків у цьому кварталі</span></div></div>
+            <div class="field-item"><div class="f-num">6</div><div class="f-body"><span class="f-sum">${cumInc.toFixed(2)} ₴</span><span class="f-desc">Дохід за рік (наростаючим)</span></div></div>
+            <div class="field-item"><div class="f-num">11</div><div class="f-body"><span class="f-sum">${ep.tot.toFixed(2)} ₴</span><span class="f-desc">ЄП нараховано за рік</span></div></div>
+            <div class="field-item"><div class="f-num">14</div><div class="f-body"><span class="f-sum">${Math.max(0, ep.pay).toFixed(2)} ₴</span><span class="f-desc">ЄП до сплати за квартал</span></div></div>
         `;
         if(curY >= 2025) {
-            detHtml += `
-                <div class="field-item"><div class="f-num">23</div><div class="f-body"><span class="f-sum">${vz.tot.toFixed(2)} ₴</span><span class="f-desc">Нараховано військового збору на загальну суму</span></div></div>
-                <div class="field-item"><div class="f-num">24</div><div class="f-body"><span class="f-sum">${vz.prv.toFixed(2)} ₴</span><span class="f-desc">За попередні квартали заплачено військового збору</span></div></div>
-                <div class="field-item"><div class="f-num">25</div><div class="f-body"><span class="f-sum">${vz.pay.toFixed(2)} ₴</span><span class="f-desc">Потрібно сплатити військового збору у цьому кварталі</span></div></div>
-            `;
+            detHtml += `<div class="field-item"><div class="f-num">25</div><div class="f-body"><span class="f-sum">${Math.max(0, vz.pay).toFixed(2)} ₴</span><span class="f-desc">ВЗ до сплати за квартал</span></div></div>`;
         }
         document.getElementById('det-sec').innerHTML = detHtml;
     }
 
-    function toggleDet() {
+    window.toggleDet = function() {
         const sec = document.getElementById('det-sec');
         const arrow = document.getElementById('det-arrow');
         const open = sec.style.display === 'block';
         sec.style.display = open ? 'none' : 'block';
         arrow.classList.toggle('open', !open);
-    }
+    };
 
-    // ── Модуль Оплати ──
-    function openPayment(type) {
+    // Payment Logic
+    window.openPayment = function(type) {
         const isEP = type === 'ep';
         const amountStr = document.getElementById(isEP ? 'pay-ep' : 'pay-vz').innerText.replace(' ₴', '');
         const amount = parseFloat(amountStr);
 
-        // Перевірка реквізитів
+        if (isNaN(amount) || amount <= 0) {
+            showToast('⚠️ Сума має бути більшою за 0');
+            return;
+        }
+
         if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
-            showToast('⚙️ Спочатку налаштуй ІПН та IBAN');
+            showToast('⚙️ Налаштуйте ІПН та IBAN');
             openSettings();
             return;
         }
 
-        const iban = isEP ? cfg.ibanEP : cfg.ibanVZ;
+        const iban = (isEP ? cfg.ibanEP : cfg.ibanVZ).replace(/\s/g, '');
         const taxName = isEP ? "Єдиний податок" : "Військовий збір";
         const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1} кв ${curY}р.;;;`;
         
         currentIbanToCopy = iban;
 
-        // Заповнення модалки
         document.getElementById('pay-title').innerText = `Оплата: ${taxName}`;
-        document.getElementById('pay-amount').innerText = amountStr + ' ₴';
+        document.getElementById('pay-amount').innerText = amount.toFixed(2) + ' ₴';
         document.getElementById('pay-purpose').innerText = purpose;
         document.getElementById('pay-iban').innerText = iban;
 
-        // Генерація QR
         const qrBox = document.getElementById('qrcode');
         qrBox.innerHTML = '';
-        const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount}|Currency=UAH|Purpose=${purpose}`;
-        new QRCode(qrBox, { text: qrStr, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+        
+        if (typeof QRCode === "undefined") {
+            qrBox.innerHTML = '<p style="color:red; font-size:10px;">Помилка завантаження QR</p>';
+        } else {
+            const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount}|Currency=UAH|Purpose=${purpose}`;
+            new QRCode(qrBox, { text: qrStr, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+        }
 
-        // Deep Link
         document.getElementById('pay-deeplink').href = `iban:${iban}?amount=${amount}&memo=${encodeURIComponent(purpose)}`;
-
         document.getElementById('pay-modal-overlay').classList.add('open');
-    }
+    };
 
-    function closePayModal() {
+    window.closePayModal = function() {
         document.getElementById('pay-modal-overlay').classList.remove('open');
-    }
+    };
 
-    function handlePayOverlayClick(e) {
+    window.handlePayOverlayClick = function(e) {
         if (e.target.id === 'pay-modal-overlay') closePayModal();
-    }
+    };
 
-    function copyCurrentIban() {
-        navigator.clipboard.writeText(currentIbanToCopy);
-        showToast('✅ IBAN копійовано');
-    }
+    window.copyCurrentIban = function() {
+        navigator.clipboard.writeText(currentIbanToCopy).then(() => showToast('✅ IBAN копійовано'));
+    };
 
-    // ── Налаштування ──
-    function openSettings() {
+    // Settings Logic
+    window.openSettings = function() {
         document.getElementById('cfg-secret').value = cfg.secret || '';
         document.getElementById('cfg-inn').value = cfg.inn || '';
         document.getElementById('cfg-iban-ep').value = cfg.ibanEP || '';
         document.getElementById('cfg-iban-vz').value = cfg.ibanVZ || '';
         renderAccountList(cfg.cachedAccounts || []);
         document.getElementById('modal-overlay').classList.add('open');
-    }
+    };
 
-    function saveSettings() {
+    window.saveSettings = function() {
         cfg.secret = document.getElementById('cfg-secret').value.trim();
         cfg.inn = document.getElementById('cfg-inn').value.trim();
         cfg.ibanEP = document.getElementById('cfg-iban-ep').value.trim();
         cfg.ibanVZ = document.getElementById('cfg-iban-vz').value.trim();
         localStorage.setItem('fop_cfg', JSON.stringify(cfg));
         closeSettings();
-        showToast('✓ Налаштування збережено');
+        showToast('✓ Збережено');
         calculate();
-    }
+    };
 
-    function handleOverlayClick(e) {
+    window.handleOverlayClick = function(e) {
         if (e.target === document.getElementById('modal-overlay')) closeSettings();
-    }
+    };
+    
     function closeSettings() {
         document.getElementById('modal-overlay').classList.remove('open');
     }
 
-    // ── Решта функцій Mono та IO (без змін) ──
-    async function fetchAccounts() {
+    // Mono API Logic
+    window.fetchAccounts = async function() {
         const secret = document.getElementById('cfg-secret').value.trim();
-        if (!secret) { showToast('Введи секретний ключ'); return; }
+        if (!secret) { showToast('Введіть секретний ключ'); return; }
         const list = document.getElementById('account-list');
         list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Завантаження...</div>';
         try {
             const r = await fetch(`${SERVER}/accounts`, { headers: { 'x-secret-key': secret } });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            if (!r.ok) throw new Error();
             const accounts = await r.json();
             cfg.cachedAccounts = accounts;
             renderAccountList(accounts);
         } catch(e) {
-            list.innerHTML = '<div style="color:var(--danger);font-size:13px;padding:8px 0;">Помилка. Перевір ключ.</div>';
+            list.innerHTML = '<div style="color:var(--danger);font-size:13px;padding:8px 0;">Помилка ключа.</div>';
         }
-    }
-
-    const CURRENCY_NAMES = { 980: 'UAH ₴', 840: 'USD $', 978: 'EUR €' };
+    };
 
     function renderAccountList(accounts) {
         const list = document.getElementById('account-list');
         if (!accounts || accounts.length === 0) {
-            list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Рахунків не знайдено</div>';
+            list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Рахунки відсутні</div>';
             return;
         }
-        const fopAccounts = accounts.filter(a => a.type === 'fop');
-        const toShow = fopAccounts.length > 0 ? fopAccounts : accounts;
+        const fops = accounts.filter(a => a.type === 'fop');
+        const toShow = fops.length > 0 ? fops : accounts;
 
         list.innerHTML = toShow.map(a => {
             const selected = (cfg.accounts || []).some(x => x.id === a.id);
-            const currency = CURRENCY_NAMES[a.currencyCode] || `Code ${a.currencyCode}`;
+            const cur = {980:'UAH', 840:'USD', 978:'EUR'}[a.currencyCode] || a.currencyCode;
             return `
                 <div class="account-item ${selected ? 'selected' : ''}" onclick="toggleAccount('${a.id}', ${a.currencyCode}, this)">
                     <div class="account-item-left">
-                        <span class="account-currency">${currency} <b style="color:var(--success)">[ФОП]</b></span>
-                        <span class="account-id">${a.id.slice(0,20)}…</span>
+                        <span class="account-currency">${cur} ₴ <b style="color:var(--success)">[ФОП]</b></span>
+                        <span class="account-id">${a.id.slice(0,12)}...</span>
                     </div>
                     <div class="account-check">✓</div>
                 </div>
@@ -446,107 +447,88 @@
         }).join('');
     }
 
-    function toggleAccount(id, currencyCode, el) {
+    window.toggleAccount = function(id, currencyCode, el) {
         el.classList.toggle('selected');
         if (!cfg.accounts) cfg.accounts = [];
         const idx = cfg.accounts.findIndex(x => x.id === id);
         if (idx === -1) cfg.accounts.push({ id, currencyCode });
         else cfg.accounts.splice(idx, 1);
-    }
+    };
 
-    function resetCache() {
+    window.resetCache = function() {
         for (let i = 0; i < 3; i++) localStorage.removeItem(`mono_cache_${curY}_${curT}_${i}`);
-        showToast('🗑 Кеш кварталу скинуто');
-    }
+        showToast('🗑 Кеш очищено');
+    };
 
-    async function fetchFromMono() {
-        if (!cfg.secret) { openSettings(); showToast('⚙️ Налаштуй підключення'); return; }
-        if (!cfg.accounts?.length) { openSettings(); showToast('⚙️ Вибери рахунки'); return; }
+    window.fetchFromMono = async function() {
+        if (!cfg.secret || !cfg.accounts?.length) { openSettings(); return; }
 
         const btn = document.getElementById('mono-btn');
         const btnText = document.getElementById('mono-btn-text');
         btn.disabled = true;
 
-        const quarterMonths = Q_MONTHS[curT];
-        const toFetch = [];
-
+        const monthsToFetch = [];
         for (let i = 0; i < 3; i++) {
-            const monthIdx = quarterMonths[i];
+            const mIdx = Q_MONTHS[curT][i];
             const cached = localStorage.getItem(`mono_cache_${curY}_${curT}_${i}`);
             const now = new Date();
-            const isMonthClosed = (parseInt(curY) < now.getFullYear()) || (parseInt(curY) === now.getFullYear() && monthIdx < now.getMonth());
+            const isClosed = (curY < now.getFullYear()) || (curY === now.getFullYear() && mIdx < now.getMonth());
             
-            if (cached !== null && isMonthClosed) {
-                db[`${curY}-${curT}-${i}`] = JSON.parse(cached);
-            } else {
-                toFetch.push(i);
-            }
+            if (cached && isClosed) db[`${curY}-${curT}-${i}`] = JSON.parse(cached);
+            else monthsToFetch.push(i);
         }
 
-        if (toFetch.length === 0) {
-            localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-            updateUI();
-            showToast('✅ Дані з кешу');
-            btn.disabled = false;
-            return;
+        if (monthsToFetch.length === 0) {
+            updateUI(); btn.disabled = false; return;
         }
 
-        btnText.textContent = `⏳ ${toFetch.length} міс. з Mono...`;
+        btnText.textContent = `⏳ Завантаження...`;
 
         try {
-            const accountsParam = encodeURIComponent(JSON.stringify(cfg.accounts));
-            const url = `${SERVER}/quarter-income?year=${curY}&quarter=${curT + 1}&months=${toFetch.join(',')}&accounts=${accountsParam}`;
+            const accs = encodeURIComponent(JSON.stringify(cfg.accounts));
+            const url = `${SERVER}/quarter-income?year=${curY}&quarter=${curT + 1}&months=${monthsToFetch.join(',')}&accounts=${accs}`;
             const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
 
-            for (const i of toFetch) {
-                const val = data[i];
-                if (val !== undefined && val !== 'limit' && !isNaN(val)) {
-                    const rounded = parseFloat(val).toFixed(2);
-                    db[`${curY}-${curT}-${i}`] = rounded;
-                    const monthIdx = quarterMonths[i];
+            for (const i of monthsToFetch) {
+                if (data[i] !== undefined && data[i] !== 'limit') {
+                    const val = parseFloat(data[i]).toFixed(2);
+                    db[`${curY}-${curT}-${i}`] = val;
+                    const mIdx = Q_MONTHS[curT][i];
                     const now = new Date();
-                    const isMonthClosed = (parseInt(curY) < now.getFullYear()) || (parseInt(curY) === now.getFullYear() && monthIdx < now.getMonth());
-                    if (isMonthClosed) localStorage.setItem(`mono_cache_${curY}_${curT}_${i}`, JSON.stringify(rounded));
+                    if ((curY < now.getFullYear()) || (curY === now.getFullYear() && mIdx < now.getMonth())) {
+                        localStorage.setItem(`mono_cache_${curY}_${curT}_${i}`, JSON.stringify(val));
+                    }
                 }
             }
-
             localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
             updateUI();
-            showToast('✅ Оновлено з Mono');
+            showToast('✅ Оновлено');
         } catch(e) {
-            showToast('✗ ' + e.message);
+            showToast('✗ Помилка API');
         } finally {
             btn.disabled = false;
             btnText.textContent = 'Завантажити з Mono';
         }
-    }
+    };
 
-    function exportData() {
-        const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
+    window.exportData = function() {
+        const blob = new Blob([JSON.stringify(db)], { type: 'application/json' });
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `fop_backup_${curY}_Q${curT+1}.json`;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); URL.revokeObjectURL(url);
-    }
+        a.href = URL.createObjectURL(blob);
+        a.download = `fop_backup.json`;
+        a.click();
+    };
 
-    function importData(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+    window.importData = function(e) {
         const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                db = JSON.parse(e.target.result);
-                localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-                updateUI();
-                showToast('✓ Імпортовано');
-            } catch(_) { showToast('✗ Помилка файлу'); }
+        reader.onload = (ev) => {
+            db = JSON.parse(ev.target.result);
+            localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+            updateUI();
         };
-        reader.readAsText(file);
-    }
+        reader.readAsText(e.target.files[0]);
+    };
 
     function showToast(msg) {
         const t = document.getElementById('toast');
@@ -555,6 +537,7 @@
         setTimeout(() => t.classList.remove('show'), 2500);
     }
 
+    // Перший запуск
     updateUI();
 </script>
 </body>
