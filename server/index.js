@@ -9,26 +9,28 @@ app.use(express.json());
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
 
-// Функція для отримання курсу НБУ
+// 1. Тягнемо курс на конкретну дату з НБУ
 async function getNbuRate(timestamp) {
     const date = new Date(timestamp * 1000);
     const yyyymmdd = date.toISOString().split('T')[0].replace(/-/g, '');
     try {
-        const r = await fetch(`https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&date=${yyyymmdd}&json`);
-        const data = await r.json();
-        return data[0]?.rate || 41.5; 
+        const response = await fetch(`https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&date=${yyyymmdd}&json`);
+        const data = await response.json();
+        // Беремо точний курс (напр. 43.1925)
+        const rate = data[0]?.rate || 41.5;
+        console.log(`Курс НБУ на ${yyyymmdd}: ${rate}`);
+        return rate;
     } catch (e) {
         return 41.5;
     }
 }
 
 app.get('/quarter-income', async (req, res) => {
-    // Перевірка ключа
     if (req.headers['x-secret-key'] !== SECRET_KEY) return res.status(401).send('No');
     
     const { accountId, year, quarter } = req.query;
-    const quarterMonths = [ [0,1,2], [3,4,5], [6,7,8], [9,10,11] ];
-    const months = quarterMonths[parseInt(quarter) - 1];
+    const monthsArray = [ [0,1,2], [3,4,5], [6,7,8], [9,10,11] ];
+    const months = monthsArray[parseInt(quarter) - 1];
     const results = {};
 
     try {
@@ -37,42 +39,43 @@ app.get('/quarter-income', async (req, res) => {
             const from = Math.floor(new Date(year, m, 1).getTime() / 1000);
             const to = Math.floor(new Date(year, m + 1, 0, 23, 59, 59).getTime() / 1000);
 
-            const response = await fetch(`https://api.monobank.ua/personal/statement/${accountId}/${from}/${to}`, {
+            // 2. Тягнемо дані з Моно
+            const r = await fetch(`https://api.monobank.ua/personal/statement/${accountId}/${from}/${to}`, {
                 headers: { 'X-Token': MONO_TOKEN }
             });
 
-            if (response.status === 429) {
-                results[i] = "limit";
-                continue;
-            }
-
-            const data = await response.json();
-            let monthTotal = 0;
+            if (r.status === 429) { results[i] = "limit"; continue; }
+            const data = await r.json();
+            
+            let monthTotalUah = 0;
 
             if (Array.isArray(data)) {
                 for (const t of data) {
                     if (t.amount > 0) {
-                        // 1. Перетворюємо копійки в чисті долари (740.85)
-                        const amountUsd = Math.abs(t.amount) / 100;
+                        // 3. Ділимо на 100, щоб отримати долари (напр. 740.85)
+                        const usdAmount = Math.abs(t.amount) / 100;
                         
-                        // 2. Отримуємо курс НБУ
+                        // 4. Тягнемо курс НБУ на дату транзакції
                         const rate = await getNbuRate(t.time);
                         
-                        // 3. Множимо ОДИН РАЗ. 740.85 * 43.17 = 31987.09
-                        monthTotal += (amountUsd * rate);
+                        // 5. Множимо долари на курс
+                        const transactionUah = usdAmount * rate;
+                        
+                        monthTotalUah += transactionUah;
+                        console.log(`Розрахунок: ${usdAmount} USD * ${rate} = ${transactionUah} UAH`);
                     }
                 }
             }
 
-            // Відправляємо чисте число без жодних додаткових множень
-            results[i] = parseFloat(monthTotal.toFixed(2));
+            // 6. Математичне заокруглення до сотих (31950.09)
+            results[i] = Math.round(monthTotalUah * 100) / 100;
 
-            // Пауза 61 сек для Mono
-            if (i < 2) await new Promise(resolve => setTimeout(resolve, 61000));
+            // Пауза 61 сек для лімітів Mono
+            if (i < 2) await new Promise(res => setTimeout(res, 61000));
         }
         res.json(results);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).send(e.message);
     }
 });
 
