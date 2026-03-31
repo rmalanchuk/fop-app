@@ -6,11 +6,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Твій токен та секретний ключ (вони мають бути в налаштуваннях Render як Environment Variables)
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
 
-// Мідлвар для перевірки доступу
 const auth = (req, res, next) => {
     if (req.headers['x-secret-key'] !== SECRET_KEY) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -18,7 +16,6 @@ const auth = (req, res, next) => {
     next();
 };
 
-// ГОЛОВНИЙ РОУТ: Опитування всього кварталу за один раз
 app.get('/quarter-income', auth, async (req, res) => {
     const { accountId, year, quarter } = req.query;
     const quarterMonths = [ [0,1,2], [3,4,5], [6,7,8], [9,10,11] ];
@@ -48,22 +45,26 @@ app.get('/quarter-income', auth, async (req, res) => {
                 continue;
             }
 
-            // Рахуємо чисту гривню
             const monthTotal = data
                 .filter(t => t.amount > 0)
                 .reduce((sum, t) => {
-                    // Якщо є operationAmount (валютний еквівалент) — беремо його, інакше звичайну суму
-                    const val = (t.operationAmount && Math.abs(t.operationAmount) !== Math.abs(t.amount)) 
-                        ? Math.abs(t.operationAmount) 
-                        : Math.abs(t.amount);
-                    return sum + val;
+                    // ПРІОРИТЕТ ГРИВНІ:
+                    // Якщо в транзакції є operationAmount і він відрізняється від суми в валюті,
+                    // значить це гривневий еквівалент. Беремо його.
+                    let amountInGryvnia = Math.abs(t.amount);
+                    
+                    if (t.operationAmount && Math.abs(t.operationAmount) !== Math.abs(t.amount)) {
+                        amountInGryvnia = Math.abs(t.operationAmount);
+                    }
+                    
+                    return sum + amountInGryvnia;
                 }, 0) / 100;
 
             results[i] = monthTotal;
 
-            // ПАУЗА 61 СЕКУНДА: Щоб Mono не заблокував наступний місяць
+            // Пауза між місяцями (крім останнього)
             if (i < 2) {
-                console.log('Чекаємо хвилину для наступного запиту...');
+                console.log('Ліміт Mono API: чекаємо 61 сек...');
                 await new Promise(res => setTimeout(res, 61000));
             }
         }
