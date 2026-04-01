@@ -17,11 +17,11 @@ const CAR_DB_PATH = path.join(__dirname, 'car_db.json');
 
 // ── Робота з базою авто ──
 function getCarData() {
-    if (!fs.existsSync(CAR_DB_PATH)) return { fuel: [], service: [], lastOdo: 0, lastPrice: 58.0 };
+    if (!fs.existsSync(CAR_DB_PATH)) return { fuel: [], service: [], lastOdo: 0, lastPrice: 87.99 };
     try {
         return JSON.parse(fs.readFileSync(CAR_DB_PATH));
     } catch (e) {
-        return { fuel: [], service: [], lastOdo: 0, lastPrice: 58.0 };
+        return { fuel: [], service: [], lastOdo: 0, lastPrice: 87.99 };
     }
 }
 
@@ -58,7 +58,7 @@ if (TELEGRAM_TOKEN) {
             
             let price = (parts.length >= 3 && !isNaN(parts[2])) 
                 ? parseFloat(parts[2]) 
-                : (data.lastPrice || 58.0);
+                : (data.lastPrice || 87.99);
 
             const liters = Math.round((amount / price) * 100) / 100;
 
