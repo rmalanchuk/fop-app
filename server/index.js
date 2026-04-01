@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const { Telegraf } = require('telegraf');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -8,6 +11,23 @@ app.use(express.json());
 
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+
+const CAR_DB_PATH = path.join(__dirname, 'car_db.json');
+
+// Допоміжні функції для роботи з базою авто
+function getCarData() {
+    if (!fs.existsSync(CAR_DB_PATH)) return { fuel: [], service: [], lastOdo: 0 };
+    try {
+        return JSON.parse(fs.readFileSync(CAR_DB_PATH));
+    } catch (e) {
+        return { fuel: [], service: [], lastOdo: 0 };
+    }
+}
+
+function saveCarData(data) {
+    fs.writeFileSync(CAR_DB_PATH, JSON.stringify(data, null, 2));
+}
 
 function auth(req, res) {
     if (req.headers['x-secret-key'] !== SECRET_KEY) {
@@ -88,6 +108,42 @@ async function calcIncome(transactions, currencyCode) {
     return total;
 }
 
+// ── Логіка Telegram Бота ──
+if (TELEGRAM_TOKEN) {
+    const bot = new Telegraf(TELEGRAM_TOKEN);
+
+    bot.on('text', async (ctx) => {
+        const text = ctx.message.text.trim();
+        const parts = text.split(/\s+/);
+
+        if (parts.length === 2 && !isNaN(parts[0].replace(',', '.')) && !isNaN(parts[1])) {
+            const amount = parseFloat(parts[0].replace(',', '.'));
+            const odo = parseInt(parts[1]);
+            
+            const data = getCarData();
+            const pricePerLiter = 54; // Середня ціна, можна буде винести в налаштування
+            const liters = Math.round((amount / pricePerLiter) * 100) / 100;
+
+            const entry = {
+                date: new Date().toISOString(),
+                amount: amount,
+                odo: odo,
+                liters: liters
+            };
+
+            data.fuel.push(entry);
+            data.lastOdo = odo;
+            saveCarData(data);
+
+            ctx.reply(`✅ Записано для BMW X1!\n⛽️ Сума: ${amount} грн\n🛣 Пробіг: ${odo} км\n⛽️ Літрів: ~${liters} л`);
+        } else {
+            ctx.reply('Надішліть дані у форматі: [Сума] [Пробіг]\nНаприклад: 2500 216000');
+        }
+    });
+
+    bot.launch().catch(err => console.error('Помилка запуску бота:', err));
+}
+
 // ── GET /accounts ──
 app.get('/accounts', async (req, res) => {
     if (!auth(req, res)) return;
@@ -102,6 +158,17 @@ app.get('/accounts', async (req, res) => {
             type: a.type
         }));
         res.json(accounts);
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
+});
+
+// ── GET /car-stats ──
+app.get('/car-stats', async (req, res) => {
+    if (!auth(req, res)) return;
+    try {
+        const data = getCarData();
+        res.json(data);
     } catch (e) {
         res.status(500).send(e.message);
     }
