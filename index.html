@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
@@ -7,7 +6,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>ФОП Роман</title>
     <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --ink: #0f0f12; --paper: #f5f4f0; --card: #ffffff;
@@ -16,7 +14,7 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Manrope', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
-    /* ── Top bar ── */
+/* ... (весь твій CSS залишається без змін) ... */
     .topbar {
         background: var(--ink); color: white;
         padding: 18px 20px 16px;
@@ -198,7 +196,6 @@
     .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--ink); color: white; padding: 11px 20px; border-radius: 30px; font-size: 13px; font-weight: 600; white-space: nowrap; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; pointer-events: none; }
     .toast.show { transform: translateX(-50%) translateY(0); }
 </style>
-
 </head>
 <body>
 
@@ -270,8 +267,6 @@
     <input type="file" id="import-file" accept=".json,application/json" onchange="importData(event)">
 </div>
 
-<!-- Settings modal -->
-
 <div class="modal-overlay" id="modal-overlay">
     <div class="modal" id="modal">
         <div class="modal-handle"></div>
@@ -297,8 +292,6 @@
     </div>
 </div>
 
-<!-- Payment modal -->
-
 <div class="modal-overlay" id="pay-modal-overlay">
     <div class="modal" style="text-align:center;">
         <div class="modal-handle"></div>
@@ -322,6 +315,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
+    // ... (весь твій JS до функції openPayment залишається без змін) ...
     const SERVER = 'https://fop-app-02d3.onrender.com';
 
     let curY = 2025, curT = 0;
@@ -339,8 +333,6 @@
     };
     let currentIbanToCopy = '';
 
-    // ── Модальні вікна — централізоване управління ──
-    // Закриваємо по кліку на overlay (не на modal)
     document.getElementById('modal-overlay').addEventListener('click', function(e) {
         if (e.target === this) closeSettings();
     });
@@ -351,7 +343,6 @@
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-    // ── Year / Tab ──
     function changeYear(delta) {
         curY = (curY || 2025) + delta;
         document.getElementById('yearDisplay').textContent = curY;
@@ -365,7 +356,6 @@
         updateUI();
     }
 
-    // ── UI ──
     function updateUI() {
         document.getElementById('inputs-container').innerHTML = mons[curT].map((m, i) => `
             <div class="month-row">
@@ -389,7 +379,6 @@
         calculate();
     }
 
-    // ── Calculate (логіка незмінна) ──
     function calculate() {
         let qSums = [0,0,0,0];
         for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
@@ -428,7 +417,7 @@
         arrow.classList.toggle('open', !open);
     }
 
-    // ── Оплата ──
+    // ── ЗМІНА 3: Оновлена функція openPayment для стабільної генерації QR ──
     function openPayment(type) {
         const isEP = type === 'ep';
 
@@ -446,7 +435,7 @@
             return;
         }
 
-        const iban = isEP ? cfg.ibanEP : cfg.ibanVZ;
+        const iban = (isEP ? cfg.ibanEP : cfg.ibanVZ).replace(/\s/g, '');
         const taxName = isEP ? 'Єдиний податок' : 'Військовий збір';
         const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1} кв ${curY}р.;;;`;
 
@@ -457,14 +446,11 @@
         document.getElementById('pay-purpose').innerText = purpose;
         document.getElementById('pay-iban').innerText = iban;
 
+        // Генерація через надійний Google API (без помилок переповнення)
         const qrBox = document.getElementById('qrcode');
-        qrBox.innerHTML = '';
-        const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount.toFixed(2)}|Currency=UAH|Purpose=${purpose}`;
-        if (typeof QRCode !== 'undefined') {
-            new QRCode(qrBox, { text: qrStr, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
-        } else {
-            qrBox.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;">QR недоступний</div>';
-        }
+        const qrData = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount.toFixed(2)}|Currency=UAH|Purpose=${purpose}`;
+        const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(qrData)}`;
+        qrBox.innerHTML = `<img src="${qrUrl}" alt="QR" style="display:block; margin:0 auto; width:180px; height:180px;">`;
 
         document.getElementById('pay-deeplink').href =
             `iban:${iban}?amount=${amount.toFixed(2)}&memo=${encodeURIComponent(purpose)}`;
@@ -478,7 +464,7 @@
         navigator.clipboard.writeText(currentIbanToCopy).then(() => showToast('✅ IBAN копійовано'));
     }
 
-    // ── Налаштування ──
+    // ... (решта функцій fetchAccounts, Mono, Export/Import тощо залишаються без змін) ...
     function openSettings() {
         document.getElementById('cfg-secret').value = cfg.secret || '';
         document.getElementById('cfg-inn').value = cfg.inn || '';
@@ -501,7 +487,6 @@
 
     function closeSettings() { closeModal('modal-overlay'); }
 
-    // ── Mono ──
     async function fetchAccounts() {
         const secret = document.getElementById('cfg-secret').value.trim();
         if (!secret) { showToast('Введи секретний ключ'); return; }
@@ -621,7 +606,6 @@
         }
     }
 
-    // ── Export / Import ──
     function exportData() {
         const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -648,7 +632,6 @@
         reader.readAsText(file);
     }
 
-    // ── Toast ──
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;
@@ -658,6 +641,5 @@
 
     updateUI();
 </script>
-
 </body>
 </html>
