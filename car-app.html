@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BMW X1 Stats</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
         .container { max-width: 800px; margin: 0 auto; }
@@ -17,12 +16,15 @@
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
         th { font-size: 14px; color: #999; }
         .price-tag { font-size: 10px; color: #888; }
+        .error-msg { color: red; text-align: center; display: none; padding: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🚗 BMW X1 (E84)</h1>
         
+        <div id="error" class="error-msg">Помилка авторизації. Перевірте ключ.</div>
+
         <div class="card stats-grid">
             <div class="stat-item">
                 <div id="total-spent" class="stat-value">0</div>
@@ -51,26 +53,52 @@
     </div>
 
     <script>
-        const API_URL = 'ПЕРЕПИШИ_НА_ТВІЙ_URL_RENDER'; // Наприклад: https://fop-proxy.onrender.com
-        const SECRET_KEY = 'ТВІЙ_SECRET_KEY';
+        const API_URL = 'https://fop-app-02d3.onrender.com';
+        
+        // Логіка ключа: спочатку з URL, потім з пам'яті телефону
+        const urlParams = new URLSearchParams(window.location.search);
+        let key = urlParams.get('key');
+        
+        if (key) {
+            localStorage.setItem('car_auth_key', key);
+            // Чистимо URL від ключа для краси
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+            key = localStorage.getItem('car_auth_key');
+        }
 
         async function loadStats() {
+            if (!key) {
+                const input = prompt("Введіть SECRET_KEY:");
+                if (input) {
+                    localStorage.setItem('car_auth_key', input);
+                    location.reload();
+                }
+                return;
+            }
+
             try {
                 const response = await fetch(`${API_URL}/car-stats`, {
-                    headers: { 'x-secret-key': SECRET_KEY }
+                    headers: { 'x-secret-key': key }
                 });
+
+                if (response.status === 401) {
+                    document.getElementById('error').style.display = 'block';
+                    localStorage.removeItem('car_auth_key');
+                    return;
+                }
+
                 const data = await response.json();
                 
-                // Рахуємо загальну суму
-                const total = data.fuel.reduce((acc, curr) => acc + curr.amount, 0);
-                document.getElementById('total-spent').innerText = total.toLocaleString();
-                document.getElementById('last-odo').innerText = data.lastOdo.toLocaleString();
+                document.getElementById('total-spent').innerText = 
+                    data.fuel.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString();
+                document.getElementById('last-odo').innerText = 
+                    (data.lastOdo || 0).toLocaleString();
 
-                // Заповнюємо таблицю (останні заправки зверху)
                 const tbody = document.querySelector('#fuel-table tbody');
-                tbody.innerHTML = data.fuel.reverse().map(f => `
+                tbody.innerHTML = [...data.fuel].reverse().map(f => `
                     <tr>
-                        <td>${new Date(f.date).toLocaleDateString()}</td>
+                        <td>${new Date(f.date).toLocaleDateString('uk-UA')}</td>
                         <td>${f.amount} ₴ <br><span class="price-tag">${f.priceAtTime} грн/л</span></td>
                         <td>${f.liters} л</td>
                         <td>${f.odo} км</td>
@@ -78,7 +106,8 @@
                 `).join('');
                 
             } catch (e) {
-                console.error("Помилка завантаження:", e);
+                console.error("Помилка:", e);
+                alert("Сервер не відповідає. Перевірте статус на Render.");
             }
         }
 
