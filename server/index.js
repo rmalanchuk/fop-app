@@ -113,33 +113,63 @@ if (TELEGRAM_TOKEN) {
     const bot = new Telegraf(TELEGRAM_TOKEN);
 
     bot.on('text', async (ctx) => {
-        const text = ctx.message.text.trim();
-        const parts = text.split(/\s+/);
-
-        if (parts.length === 2 && !isNaN(parts[0].replace(',', '.')) && !isNaN(parts[1])) {
-            const amount = parseFloat(parts[0].replace(',', '.'));
+        let text = ctx.message.text.trim();
+        const isTest = text.toLowerCase().startsWith('тест');
+        
+        // Якщо це тест, прибираємо слово "тест" з рядка, щоб далі парсити тільки цифри
+        if (isTest) {
+            text = text.replace(/тест/i, '').trim();
+        }
+    
+        const parts = text.split(/\s+/).map(p => p.replace(',', '.'));
+    
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            const amount = parseFloat(parts[0]);
             const odo = parseInt(parts[1]);
             
             const data = getCarData();
-            const pricePerLiter = 54; // Середня ціна, можна буде винести в налаштування
-            const liters = Math.round((amount / pricePerLiter) * 100) / 100;
-
+            
+            let price = (parts.length >= 3 && !isNaN(parts[2])) 
+                ? parseFloat(parts[2]) 
+                : (data.lastPrice || 58.0);
+    
+            const liters = Math.round((amount / price) * 100) / 100;
+    
+            // Формуємо об'єкт запису
             const entry = {
                 date: new Date().toISOString(),
                 amount: amount,
                 odo: odo,
-                liters: liters
+                liters: liters,
+                priceAtTime: price
             };
-
-            data.fuel.push(entry);
-            data.lastOdo = odo;
-            saveCarData(data);
-
-            ctx.reply(`✅ Записано для BMW X1!\n⛽️ Сума: ${amount} грн\n🛣 Пробіг: ${odo} км\n⛽️ Літрів: ~${liters} л`);
+    
+            // КРИТИЧНИЙ МОМЕНТ: записуємо в базу тільки якщо це НЕ тест
+            if (!isTest) {
+                data.fuel.push(entry);
+                data.lastOdo = odo;
+                data.lastPrice = price;
+                saveCarData(data);
+            }
+    
+            const prefix = isTest ? '🧪 **ТЕСТОВИЙ РЕЗУЛЬТАТ (НЕ ЗАПИСАНО)**' : '✅ **ЗАПИСАНО В БАЗУ**';
+    
+            ctx.replyWithMarkdown(
+                `${prefix}\n\n` +
+                `🚗 Машина: BMW X1\n` +
+                `⛽️ Ціна: ${price} грн/л\n` +
+                `💰 Сума: ${amount} грн\n` +
+                `🛣 Пробіг: ${odo} км\n` +
+                `⛽️ Літрів: ~${liters} л\n\n` +
+                `${isTest ? '_Дані не було збережено у файл._' : '_Дані успішно збережено._'}`
+            );
         } else {
-            ctx.reply('Надішліть дані у форматі: [Сума] [Пробіг]\nНаприклад: 2500 216000');
+            ctx.reply('Формат: [Сума] [Пробіг] [Ціна (опційно)]\nДля тесту пиши: Тест 2500 216000');
         }
     });
+
+    bot.launch().catch(err => console.error('Помилка бота:', err));
+}
 
     bot.launch().catch(err => console.error('Помилка запуску бота:', err));
 }
