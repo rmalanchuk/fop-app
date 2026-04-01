@@ -292,33 +292,34 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="pay-modal-overlay" onclick="closeModalOnOverlay(event, 'pay-modal-overlay')">
-        <div class="modal">
-            <div class="modal-h"></div>
-            <h3 id="pay-title" style="font-family: 'Unbounded'; margin-bottom: 20px;">Оплата</h3>
+<div class="modal-overlay" id="pay-modal-overlay" onclick="if(event.target === this) closeModal('pay-modal-overlay')">
+    <div class="modal" style="text-align:center;">
+        <div class="modal-handle"></div>
+        <h2 id="pay-title" style="font-family:'Unbounded',sans-serif; font-size:16px; margin-bottom:20px; text-align: left;">Оплата</h2>
+        
+        <div style="background:var(--paper); padding:15px; border-radius:16px; text-align:left; margin-bottom:20px;">
+            <div style="margin-bottom:12px; position:relative;">
+                <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Сума до сплати</div>
+                <div id="disp-amount" style="font-size:24px; font-weight:900; margin-top:4px;">0.00</div>
+                <button onclick="copyTxt('disp-amount')" style="position:absolute; right:0; bottom:0; background:none; border:none; font-size:20px; cursor:pointer; padding:5px;">📋</button>
+            </div>
             
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 16px; text-align: left; margin-bottom: 20px;">
-                <div style="margin-bottom: 12px;">
-                    <div style="font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase;">Сума до сплати</div>
-                    <div id="disp-amount" style="font-size: 24px; font-weight: 900; margin-top: 4px;">0.00 ₴</div>
-                </div>
-                
-                <div style="margin-bottom: 12px; position: relative; border-top: 1px solid #eee; padding-top: 10px;">
-                    <div style="font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase;">IBAN</div>
-                    <div id="disp-iban" style="font-size: 13px; font-weight: 600; word-break: break-all; padding-right: 40px; margin-top: 4px;">-</div>
-                    <button onclick="copyTxt('disp-iban')" style="position: absolute; right: 0; bottom: 0; background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px;">📋</button>
-                </div>
-
-                <div style="position: relative; border-top: 1px solid #eee; padding-top: 10px;">
-                    <div style="font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase;">Призначення платежу</div>
-                    <div id="disp-purpose" style="font-size: 13px; font-weight: 600; padding-right: 40px; margin-top: 4px; line-height: 1.4;">-</div>
-                    <button onclick="copyTxt('disp-purpose')" style="position: absolute; right: 0; bottom: 0; background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px;">📋</button>
-                </div>
+            <div style="margin-bottom:12px; position:relative; border-top:1px solid var(--border); padding-top:10px;">
+                <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">IBAN</div>
+                <div id="disp-iban" style="font-size:13px; font-weight:600; word-break:break-all; padding-right:40px; margin-top:4px;">-</div>
+                <button onclick="copyTxt('disp-iban')" style="position:absolute; right:0; bottom:0; background:none; border:none; font-size:20px; cursor:pointer; padding:5px;">📋</button>
             </div>
 
-            <button class="save-btn" onclick="closeModal('pay-modal-overlay')" style="background: var(--ink); color: white;">Зрозумів, закрити</button>
+            <div style="position:relative; border-top:1px solid var(--border); padding-top:10px;">
+                <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Призначення платежу</div>
+                <div id="disp-purpose" style="font-size:13px; font-weight:600; padding-right:40px; margin-top:4px; line-height:1.4;">-</div>
+                <button onclick="copyTxt('disp-purpose')" style="position:absolute; right:0; bottom:0; background:none; border:none; font-size:20px; cursor:pointer; padding:5px;">📋</button>
+            </div>
         </div>
+
+        <button class="save-btn" onclick="closeModal('pay-modal-overlay')" style="background:var(--ink); color:white;">Зрозумів, закрити</button>
     </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -427,33 +428,31 @@
 
     // ── ЗМІНА 3: Оновлена функція openPayment для стабільної генерації QR ──
     function openPayment(type) {
-        const isEP = type === 'ep';
-        
-        // Розрахунок суми (твоя стандартна логіка)
-        let qSums = [0,0,0,0];
-        for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
-        let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
-        let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
-        const amount = isEP ? (cumInc * 0.05) - (prvInc * 0.05) : (cumInc * 0.01) - (prvInc * 0.01);
+    const isEP = type === 'ep';
+    
+    let qSums = [0,0,0,0];
+    for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
+    let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
+    let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
+    const amount = isEP ? (cumInc * 0.05) - (prvInc * 0.05) : (cumInc * 0.01) - (prvInc * 0.01);
 
-        if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
-            showToast('⚙️ Спочатку налаштуй ІПН та IBAN');
-            openSettings();
-            return;
-        }
-
-        const iban = (isEP ? cfg.ibanEP : cfg.ibanVZ).replace(/\s/g, '');
-        const taxName = isEP ? 'Єдиний податок' : 'Військовий збір';
-        const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1}кв ${curY}р.;;;`;
-
-        // Підставляємо дані в нові поля
-        document.getElementById('pay-title').innerText = taxName;
-        document.getElementById('disp-amount').innerText = amount.toFixed(2) + ' ₴';
-        document.getElementById('disp-iban').innerText = iban;
-        document.getElementById('disp-purpose').innerText = purpose;
-
-        openModal('pay-modal-overlay');
+    if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
+        showToast('⚙️ Налаштуй ІПН та IBAN');
+        openSettings();
+        return;
     }
+
+    const iban = (isEP ? cfg.ibanEP : cfg.ibanVZ).replace(/\s/g, '');
+    const taxName = isEP ? 'Єдиний податок' : 'Військовий збір';
+    const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1}кв ${curY}р.;;;`;
+
+    document.getElementById('pay-title').innerText = taxName;
+    document.getElementById('disp-amount').innerText = amount.toFixed(2);
+    document.getElementById('disp-iban').innerText = iban;
+    document.getElementById('disp-purpose').innerText = purpose;
+
+    openModal('pay-modal-overlay');
+}
 
     function closePayModal() { closeModal('pay-modal-overlay'); }
 
@@ -636,13 +635,13 @@
         setTimeout(() => t.classList.remove('show'), 2500);
     }
     function copyTxt(id) {
-        const text = document.getElementById(id).innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            showToast('✅ Скопійовано в буфер');
-        }).catch(() => {
-            showToast('❌ Помилка копіювання');
-        });
-    }
+    const text = document.getElementById(id).innerText.replace(' ₴', '');
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('✅ Скопійовано');
+    }).catch(() => {
+        showToast('❌ Помилка');
+    });
+}
 
     updateUI();
 </script>
