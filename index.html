@@ -196,12 +196,12 @@
     .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--ink); color: white; padding: 11px 20px; border-radius: 30px; font-size: 13px; font-weight: 600; white-space: nowrap; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; pointer-events: none; }
     .toast.show { transform: translateX(-50%) translateY(0); }
 
-    /* Оновлені стилі банерів дедлайнів */
+/* Оновлені стилі банерів дедлайнів */
     .deadlines-grid { 
         display: grid; 
         grid-template-columns: 1fr 1fr; 
         gap: 12px; 
-        margin: 24px 16px 5px; /* 24px зверху для відступу від хедера */
+        margin: 24px 16px 5px;
     }
     
     .deadline-card { 
@@ -211,20 +211,24 @@
         border: 1px solid var(--border); 
         box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         transition: 0.3s; 
-        text-align: center; /* Весь текст по центру */
+        text-align: center;
+        cursor: pointer; /* Робимо клікабельним */
     }
 
-    /* Стан: Все добре (більше 9 днів) - зелений */
-    .deadline-card.safe { border-color: #c6f6d5; background: #f0fff4; }
-    .safe .dl-days { color: #2f855a; }
+    /* Стандартний стан: Сірий (далеко) */
+    .deadline-card.safe { border-color: var(--border); background: #fdfdfd; }
+    .safe .dl-days { color: var(--muted); }
     
-    /* Стан: Увага (менше 9 днів або сьогодні) - червоний */
+    /* Стан: Увага (менше 9 днів) - Червоний */
     .deadline-card.urgent { border-color: #fed7d7; background: #fff5f5; }
     .urgent .dl-days { color: #e53e3e; }
     
-    /* Стан: Термін минув - сірий */
+    /* Стан: Виконано - Зелений */
+    .deadline-card.done { border-color: #c6f6d5; background: #f0fff4; }
+    .done .dl-days { color: #2f855a; }
+    
+    /* Стан: Термін минув */
     .deadline-card.passed { border-color: var(--border); background: #f8f9fa; opacity: 0.7; }
-    .passed .dl-days { color: var(--muted); }
 
     .dl-label { 
         font-size: 9px; 
@@ -237,7 +241,7 @@
     
     .dl-days { 
         font-family: 'Unbounded', sans-serif; 
-        font-size: 15px; 
+        font-size: 14px; 
         font-weight: 700; 
         margin-bottom: 2px;
     }
@@ -299,12 +303,12 @@
 </div>
 
 <div class="deadlines-grid" id="deadlines-container">
-    <div class="deadline-card" id="dl-report-card">
+    <div class="deadline-card" id="dl-report-card" onclick="toggleDone('report')">
         <div class="dl-label">Декларація</div>
         <div class="dl-days" id="dl-report-days">-</div>
         <div class="dl-date" id="dl-report-date">.. . ..</div>
     </div>
-    <div class="deadline-card" id="dl-tax-card">
+    <div class="deadline-card" id="dl-tax-card" onclick="toggleDone('tax')">
         <div class="dl-label">Оплата ЄП/ВЗ</div>
         <div class="dl-days" id="dl-tax-days">-</div>
         <div class="dl-date" id="dl-tax-date">.. . ..</div>
@@ -800,72 +804,81 @@ function importData(event) {
         showToast('❌ Помилка');
     });
 }
-    function updateDeadlines() {
-    function adjustForWeekend(date) {
-        const d = new Date(date);
-        const day = d.getDay(); 
-        if (day === 0) d.setDate(d.getDate() + 1);
-        else if (day === 6) d.setDate(d.getDate() + 2);
-        return d;
-    }
-
-    // ЛОГІКА: Який період ми закриваємо в ПОТОЧНОМУ обраному табі?
-    // Якщо вибрано Q1 (0), ми звітуємо за Q4 минулого року.
-    // Якщо Q2 (1), звітуємо за Q1 цього року і т.д.
-    let targetQ = curT - 1;
-    let targetY = curY;
-
-    if (targetQ < 0) {
-        targetQ = 3; // Q4
-        targetY = curY - 1; // минулого року
-    }
-
-    // Визначаємо кінець того кварталу, ЗА ЯКИЙ звітуємо
-    const qEndMonths = [2, 5, 8, 11]; 
-    const qEndDays = [31, 30, 30, 31];
-    const periodEnd = new Date(targetY, qEndMonths[targetQ], qEndDays[targetQ]);
-
-    // Рахуємо дедлайни від кінця того періоду
-    let rDate = new Date(periodEnd);
-    rDate.setDate(rDate.getDate() + 40);
-    rDate = adjustForWeekend(rDate);
-
-    let pDate = new Date(periodEnd);
-    pDate.setDate(pDate.getDate() + 50);
-    pDate = adjustForWeekend(pDate);
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    // Текст для підпису (наприклад: "за Q4 2025")
-    const periodText = `за Q${targetQ + 1} ${targetY}`;
-
-    function setCard(id, targetDate, label) {
-        const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
-        const card = document.getElementById(`dl-${id}-card`);
-        const daysEl = document.getElementById(`dl-${id}-days`);
-        const dateEl = document.getElementById(`dl-${id}-date`);
-        const labelEl = card.querySelector('.dl-label');
-
-        labelEl.innerText = `${label} ${periodText}`;
-        dateEl.innerText = targetDate.toLocaleDateString('uk-UA');
-        
-        card.classList.remove('urgent', 'safe', 'passed');
-
-        if (diff < 0) {
-            daysEl.innerText = "Минув";
-            card.classList.add('passed');
+    function toggleDone(type) {
+        // Ключ унікальний для кожного року, кварталу та типу картки
+        const key = `done-${curY}-${curT}-${type}`;
+        if (db[key]) {
+            delete db[key];
         } else {
-            daysEl.innerText = (diff === 0) ? "СЬОГОДНІ" : `${diff} дн.`;
-            if (diff <= 9) card.classList.add('urgent');
-            else card.classList.add('safe');
+            db[key] = true;
         }
+        localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+        updateDeadlines(); // Перемальовуємо банери
+        showToast(db[key] ? '✅ Позначено як виконано' : '🔄 Статус скинуто');
     }
 
-    setCard('report', rDate, 'Звіт');
-    setCard('tax', pDate, 'Оплата');
-}
+    function updateDeadlines() {
+        function adjustForWeekend(date) {
+            const d = new Date(date);
+            const day = d.getDay(); 
+            if (day === 0) d.setDate(d.getDate() + 1);
+            else if (day === 6) d.setDate(d.getDate() + 2);
+            return d;
+        }
 
+        let targetQ = curT - 1;
+        let targetY = curY;
+        if (targetQ < 0) { targetQ = 3; targetY = curY - 1; }
+
+        const qEndMonths = [2, 5, 8, 11]; 
+        const qEndDays = [31, 30, 30, 31];
+        const periodEnd = new Date(targetY, qEndMonths[targetQ], qEndDays[targetQ]);
+
+        let rDate = new Date(periodEnd);
+        rDate.setDate(rDate.getDate() + 40);
+        rDate = adjustForWeekend(rDate);
+
+        let pDate = new Date(periodEnd);
+        pDate.setDate(pDate.getDate() + 50);
+        pDate = adjustForWeekend(pDate);
+
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        const periodText = `за Q${targetQ + 1} ${targetY}`;
+
+        function setCard(id, targetDate, label, doneText) {
+            const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
+            const card = document.getElementById(`dl-${id}-card`);
+            const daysEl = document.getElementById(`dl-${id}-days`);
+            const dateEl = document.getElementById(`dl-${id}-date`);
+            const labelEl = card.querySelector('.dl-label');
+
+            labelEl.innerText = `${label} ${periodText}`;
+            dateEl.innerText = targetDate.toLocaleDateString('uk-UA');
+            
+            // Скидаємо класи
+            card.classList.remove('urgent', 'safe', 'passed', 'done');
+
+            // Перевірка чи виконано (з db)
+            const isDone = db[`done-${curY}-${curT}-${id}`];
+
+            if (isDone) {
+                daysEl.innerText = doneText; // "ПОДАНО" або "ОПЛАЧЕНО"
+                card.classList.add('done');
+            } else if (diff < 0) {
+                daysEl.innerText = "Минув";
+                card.classList.add('passed');
+            } else {
+                daysEl.innerText = (diff === 0) ? "СЬОГОДНІ" : `${diff} дн.`;
+                if (diff <= 9) card.classList.add('urgent');
+                else card.classList.add('safe');
+            }
+        }
+
+        setCard('report', rDate, 'Звіт', 'ПОДАНО');
+        setCard('tax', pDate, 'Оплата', 'ОПЛАЧЕНО');
+    }
     updateUI();
 </script>
 </body>
