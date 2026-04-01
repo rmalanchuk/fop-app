@@ -443,7 +443,7 @@
     }
 
     const iban = (isEP ? cfg.ibanEP : cfg.ibanVZ).replace(/\s/g, '');
-    const taxName = isEP ? 'єдиного податку' : 'військового збору';
+    const taxName = isEP ? 'ЄП' : 'військового збору';
     
     // НОВИЙ ФОРМАТ ПРИЗНАЧЕННЯ: 101 Сплата [назва] за [N]-й квартал [РІК] року
     const purpose = `101 Сплата ${taxName} за ${curT + 1}-й квартал ${curY} року`;
