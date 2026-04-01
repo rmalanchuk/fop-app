@@ -57,6 +57,22 @@ async function saveCarData(entry) {
     }
 }
 
+async function saveMaintenanceData(entry) {
+    const dbEntry = {
+        date: entry.date,
+        odo: entry.odo,
+        description: entry.description,
+        cost: entry.cost,
+        type: entry.type || 'Ремонт'
+    };
+
+    const { error } = await supabase
+        .from('car_maintenance')
+        .insert([dbEntry]);
+
+    if (error) console.error('Supabase maintenance insert error:', error);
+}
+
 // ── Логіка Telegram Бота ──
 if (TELEGRAM_TOKEN) {
     const bot = new Telegraf(TELEGRAM_TOKEN);
@@ -73,6 +89,7 @@ if (TELEGRAM_TOKEN) {
 
     bot.telegram.setMyCommands([
         { command: 'price', description: 'Дізнатися останню ціну палива' },
+        { command: 'service', description: 'Записати ремонт/ТО' },
         { command: 'start', description: 'Запустити бота' }
     ]);
 
@@ -99,6 +116,52 @@ if (TELEGRAM_TOKEN) {
     bot.command('price', sendLastPrice);
     bot.hears('⛽️ Остання ціна', sendLastPrice);
 
+    bot.command('service', async (ctx) => {
+        const messageText = ctx.message.text.replace('/service', '').trim();
+        
+        // Шукаємо всі числа в тексті (враховуємо кому та крапку)
+        const numbers = messageText.match(/(\d+[.,]\d+|\d+)/g);
+    
+        if (numbers && numbers.length >= 2) {
+            // Перше число — сума, друге — пробіг
+            const cost = parseFloat(numbers[0].replace(',', '.'));
+            const odo = parseInt(numbers[1]);
+    
+            // Весь інший текст, який не є цими двома числами, стає описом
+            let description = messageText
+                .replace(numbers[0], '')
+                .replace(numbers[1], '')
+                .trim()
+                .replace(/\s+/g, ' '); // прибираємо зайві пробіли
+    
+            // Якщо раптом опису немає, дамо дефолтний
+            if (!description) description = "Ремонт/Обслуговування";
+    
+            const entry = {
+                date: new Date().toISOString().split('T')[0],
+                odo,
+                description,
+                cost,
+                type: 'Ремонт'
+            };
+    
+            try {
+                await saveMaintenanceData(entry);
+                ctx.replyWithMarkdown(
+                    `🛠 **СЕРВІС ЗАПИСАНО**\n\n` +
+                    `🔧 Що: ${description}\n` +
+                    `🛣 Пробіг: ${odo} км\n` +
+                    `💰 Вартість: ${cost} грн`,
+                    mainKeyboard
+                );
+            } catch (e) {
+                ctx.reply('Помилка збереження в Supabase', mainKeyboard);
+            }
+        } else {
+            ctx.reply('Формат вводу вільний, але вкажіть хоча б два числа (суму та пробіг).\nПриклад: Заміна сайлентблоків 4500 218000', mainKeyboard);
+        }
+    });
+    
     bot.on('text', async (ctx) => {
         let text = ctx.message.text.trim();
         
