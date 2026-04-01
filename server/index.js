@@ -165,9 +165,54 @@ if (TELEGRAM_TOKEN) {
     bot.on('text', async (ctx) => {
         let text = ctx.message.text.trim();
         
-        // Ігноруємо текст кнопки, щоб не спрацював формат [Сума] [Пробіг]
+        // 1. Ігноруємо натискання кнопки ціни
         if (text === '⛽️ Остання ціна') return;
 
+        // 2. Визначаємо, чи це СЕРВІС (якщо в тексті є хоча б 2 літери підряд: ТО, Мастило, Мийка)
+        const hasLetters = /[а-яА-Яa-zA-ZіІєЄїЇґҐ]{2,}/.test(text);
+
+        if (hasLetters) {
+            // --- ЛОГІКА СЕРВІСУ ---
+            // Шукаємо всі числа (ціна та пробіг)
+            const numbers = text.match(/(\d+[.,]\d+|\d+)/g);
+
+            if (numbers && numbers.length >= 2) {
+                const cost = parseFloat(numbers[0].replace(',', '.'));
+                const odo = parseInt(numbers[1]);
+                
+                // Опис — це весь текст без цих двох чисел
+                let description = text
+                    .replace(numbers[0], '')
+                    .replace(numbers[1], '')
+                    .trim()
+                    .replace(/\s+/g, ' ');
+
+                if (!description) description = "Технічне обслуговування";
+
+                const entry = {
+                    date: new Date().toISOString().split('T')[0],
+                    odo,
+                    description,
+                    cost,
+                    type: 'Ремонт'
+                };
+
+                try {
+                    await saveMaintenanceData(entry);
+                    return ctx.replyWithMarkdown(
+                        `🛠 **СЕРВІС ЗАПИСАНО**\n\n` +
+                        `🔧 Що: ${description}\n` +
+                        `🛣 Пробіг: ${odo} км\n` +
+                        `💰 Вартість: ${cost} грн`,
+                        mainKeyboard
+                    );
+                } catch (e) {
+                    return ctx.reply('Помилка при збереженні сервісу в базу.', mainKeyboard);
+                }
+            }
+        }
+
+        // --- ЛОГІКА ЗАПРАВКИ (якщо тільки цифри) ---
         const isTest = text.toLowerCase().startsWith('тест');
         if (isTest) text = text.replace(/тест/i, '').trim();
 
@@ -176,40 +221,52 @@ if (TELEGRAM_TOKEN) {
         if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
             const amount = parseFloat(parts[0]);
             const odo = parseInt(parts[1]);
-            const data = await getCarData();
             
-            let price = (parts.length >= 3 && !isNaN(parts[2])) 
-                ? parseFloat(parts[2]) 
-                : (data.lastPrice || 87.99);
+            try {
+                const data = await getCarData();
+                let price = (parts.length >= 3 && !isNaN(parts[2])) 
+                    ? parseFloat(parts[2]) 
+                    : (data.lastPrice || 87.99);
 
-            const liters = Math.round((amount / price) * 100) / 100;
+                const liters = Math.round((amount / price) * 100) / 100;
 
-            const entry = {
-                date: new Date().toISOString(),
-                amount,
-                odo,
-                liters,
-                priceAtTime: price
-            };
+                const entry = {
+                    date: new Date().toISOString(),
+                    amount,
+                    odo,
+                    liters,
+                    priceAtTime: price
+                };
 
-            if (!isTest) {
-                await saveCarData(entry); 
+                if (!isTest) {
+                    await saveCarData(entry); 
+                }
+
+                const prefix = isTest ? '🧪 **ТЕСТОВИЙ РЕЗУЛЬТАТ**' : '✅ **ЗАПИСАНО В БАЗУ**';
+
+                ctx.replyWithMarkdown(
+                    `${prefix}\n\n` +
+                    `🚗 Машина: BMW X1\n` +
+                    `⛽️ Ціна: ${price} грн/л\n` +
+                    `💰 Сума: ${amount} грн\n` +
+                    `🛣 Пробіг: ${odo} км\n` +
+                    `⛽️ Літрів: ~${liters} л\n\n` +
+                    `${isTest ? '_Дані не збережено._' : '_Дані в Supabase._'}`,
+                    mainKeyboard
+                );
+            } catch (e) {
+                ctx.reply('Помилка при отриманні ціни або збереженні заправки.', mainKeyboard);
             }
-
-            const prefix = isTest ? '🧪 **ТЕСТОВИЙ РЕЗУЛЬТАТ**' : '✅ **ЗАПИСАНО В БАЗУ**';
-
-            ctx.replyWithMarkdown(
-                `${prefix}\n\n` +
-                `🚗 Машина: BMW X1\n` +
-                `⛽️ Ціна: ${price} грн/л\n` +
-                `💰 Сума: ${amount} грн\n` +
-                `🛣 Пробіг: ${odo} км\n` +
-                `⛽️ Літрів: ~${liters} л\n\n` +
-                `${isTest ? '_Дані не збережено._' : '_Дані в Supabase._'}`,
-                mainKeyboard // Додаємо кнопку до кожної відповіді
-            );
         } else {
-            ctx.reply('Формат: [Сума] [Пробіг] [Ціна (опційно)]\nПриклад: 2500 216000', mainKeyboard);
+            // Якщо текст не підійшов ні під сервіс, ні під заправку
+            ctx.reply(
+                'Не зрозумів формат 🤔\n\n' +
+                '⛽️ **Заправка:** [Сума] [Пробіг]\n' +
+                'Приклад: `2500 216000`\n\n' +
+                '🛠 **Сервіс:** [Опис] [Сума] [Пробіг]\n' +
+                'Приклад: `ТО 4500 218000` або `Заміна мастила 4000 218000`',
+                mainKeyboard
+            );
         }
     });
 
