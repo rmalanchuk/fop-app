@@ -327,40 +327,55 @@
 
     // ── Модуль Оплати ──
     function openPayment(type) {
-        const isEP = type === 'ep';
-        const amountStr = document.getElementById(isEP ? 'pay-ep' : 'pay-vz').innerText.replace(' ₴', '');
-        const amount = parseFloat(amountStr);
+    const isEP = type === 'ep';
 
-        // Перевірка реквізитів
-        if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
-            showToast('⚙️ Спочатку налаштуй ІПН та IBAN');
-            openSettings();
-            return;
-        }
+    // Беремо суму напряму з calculate(), а не з innerText
+    let qSums = [0,0,0,0];
+    for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
+    let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
+    let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
+    const epPay = (cumInc * 0.05) - (prvInc * 0.05);
+    const vzPay = (cumInc * 0.01) - (prvInc * 0.01);
+    const amount = isEP ? epPay : vzPay;
 
-        const iban = isEP ? cfg.ibanEP : cfg.ibanVZ;
-        const taxName = isEP ? "Єдиний податок" : "Військовий збір";
-        const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1} кв ${curY}р.;;;`;
-        
-        currentIbanToCopy = iban;
-
-        // Заповнення модалки
-        document.getElementById('pay-title').innerText = `Оплата: ${taxName}`;
-        document.getElementById('pay-amount').innerText = amountStr + ' ₴';
-        document.getElementById('pay-purpose').innerText = purpose;
-        document.getElementById('pay-iban').innerText = iban;
-
-        // Генерація QR
-        const qrBox = document.getElementById('qrcode');
-        qrBox.innerHTML = '';
-        const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount}|Currency=UAH|Purpose=${purpose}`;
-        new QRCode(qrBox, { text: qrStr, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
-
-        // Deep Link
-        document.getElementById('pay-deeplink').href = `iban:${iban}?amount=${amount}&memo=${encodeURIComponent(purpose)}`;
-
-        document.getElementById('pay-modal-overlay').classList.add('open');
+    if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
+        showToast('⚙️ Спочатку налаштуй ІПН та IBAN');
+        openSettings();
+        return;
     }
+
+    const iban = isEP ? cfg.ibanEP : cfg.ibanVZ;
+    const taxName = isEP ? "Єдиний податок" : "Військовий збір";
+    const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1} кв ${curY}р.;;;`;
+
+    currentIbanToCopy = iban;
+
+    document.getElementById('pay-title').innerText = `Оплата: ${taxName}`;
+    document.getElementById('pay-amount').innerText = amount.toFixed(2) + ' ₴';
+    document.getElementById('pay-purpose').innerText = purpose;
+    document.getElementById('pay-iban').innerText = iban;
+
+    // QR — чистимо і генеруємо заново
+    const qrBox = document.getElementById('qrcode');
+    qrBox.innerHTML = '';
+    const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount.toFixed(2)}|Currency=UAH|Purpose=${purpose}`;
+
+    if (typeof QRCode !== 'undefined') {
+        new QRCode(qrBox, {
+            text: qrStr,
+            width: 180,
+            height: 180,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    } else {
+        qrBox.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;">QR недоступний</div>';
+    }
+
+    document.getElementById('pay-deeplink').href =
+        `iban:${iban}?amount=${amount.toFixed(2)}&memo=${encodeURIComponent(purpose)}`;
+
+    document.getElementById('pay-modal-overlay').classList.add('open');
+}
 
     function closePayModal() {
         document.getElementById('pay-modal-overlay').classList.remove('open');
@@ -556,6 +571,33 @@
     }
 
     updateUI();
+    // Прив'язка через addEventListener — обходить конфлікт Safari з вкладеними кнопками
+document.addEventListener('DOMContentLoaded', function() {
+    // якщо DOMContentLoaded вже спрацював — прив'язуємо одразу
+    bindPayButtons();
+});
+// Запасний варіант якщо скрипт в кінці body і DOM вже готовий
+if (document.readyState !== 'loading') bindPayButtons();
+
+function bindPayButtons() {
+    const epRow = document.querySelector('.result-item[onclick*="ep"]');
+    const vzRow = document.getElementById('vz-row');
+
+    if (epRow) {
+        epRow.removeAttribute('onclick');
+        epRow.addEventListener('click', function(e) {
+            e.stopPropagation();
+            openPayment('ep');
+        });
+    }
+    if (vzRow) {
+        vzRow.removeAttribute('onclick');
+        vzRow.addEventListener('click', function(e) {
+            e.stopPropagation();
+            openPayment('vz');
+        });
+    }
+}
 </script>
 </body>
 </html>
