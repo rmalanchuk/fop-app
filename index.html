@@ -195,6 +195,27 @@
     /* ── Toast ── */
     .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--ink); color: white; padding: 11px 20px; border-radius: 30px; font-size: 13px; font-weight: 600; white-space: nowrap; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; pointer-events: none; }
     .toast.show { transform: translateX(-50%) translateY(0); }
+
+    .deadlines-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 16px 0; }
+    .deadline-card { 
+        background: white; padding: 12px; border-radius: 18px; 
+        border: 1px solid var(--border); transition: 0.3s; 
+    }
+    /* Стан: Все добре (більше 9 днів) */
+    .deadline-card.safe { border-color: #c6f6d5; background: #f0fff4; }
+    .safe .dl-days { color: #2f855a; }
+    
+    /* Стан: Увага (менше 9 днів або сьогодні) */
+    .deadline-card.urgent { border-color: #fed7d7; background: #fff5f5; }
+    .urgent .dl-days { color: #e53e3e; }
+    
+    /* Стан: Термін минув */
+    .deadline-card.passed { border-color: var(--border); background: #f8f9fa; opacity: 0.7; }
+    .passed .dl-days { color: var(--muted); }
+
+    .dl-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+    .dl-days { font-family: 'Unbounded'; font-size: 14px; font-weight: 700; }
+    .dl-date { font-size: 11px; color: var(--muted); margin-top: 2px; }    
     .deadlines-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 16px 16px; }
     .deadline-card { background: white; padding: 12px; border-radius: 18px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid var(--border); transition: 0.3s; }
     .deadline-card.urgent { border-color: #ffcfcf; background: #fff8f8; }
@@ -220,15 +241,6 @@
     <button class="year-btn" onclick="changeYear(1)">&#43;</button>
 </div>
 
-<div class="tabs-wrap">
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab(0, this)">Q1</div>
-        <div class="tab" onclick="switchTab(1, this)">Q2</div>
-        <div class="tab" onclick="switchTab(2, this)">Q3</div>
-        <div class="tab" onclick="switchTab(3, this)">Q4</div>
-    </div>
-</div>
-    
 <div class="deadlines-grid" id="deadlines-container">
     <div class="deadline-card" id="dl-report-card">
         <div class="dl-label">Декларація</div>
@@ -239,6 +251,15 @@
         <div class="dl-label">Оплата ЄП/ВЗ</div>
         <div class="dl-days" id="dl-tax-days">-</div>
         <div class="dl-date" id="dl-tax-date">.. . ..</div>
+    </div>
+</div>
+
+<div class="tabs-wrap">
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab(0, this)">Q1</div>
+        <div class="tab" onclick="switchTab(1, this)">Q2</div>
+        <div class="tab" onclick="switchTab(2, this)">Q3</div>
+        <div class="tab" onclick="switchTab(3, this)">Q4</div>
     </div>
 </div>
 
@@ -677,62 +698,50 @@
     });
 }
     function updateDeadlines() {
-    // Точні дати згідно з твоїм списком (місяці: 0-січ, 1-лют, 4-трав, 7-серп, 10-лист)
-    const taxCalendar = {
-        2025: [
-            { r: [2025, 1, 10], p: [2025, 1, 19] }, // Q4'24 (лютий 25)
-            { r: [2025, 4, 12], p: [2025, 4, 20] }, // Q1
-            { r: [2025, 7, 11], p: [2025, 7, 19] }, // Q2
-            { r: [2025, 10, 10], p: [2025, 10, 19] } // Q3
-        ],
-        2026: [
-            { r: [2026, 1, 9],  p: [2026, 1, 19] }, // Q4'25 (лютий 26)
-            { r: [2026, 4, 11], p: [2026, 4, 20] }, // Q1
-            { r: [2026, 7, 10], p: [2026, 7, 19] }, // Q2
-            { r: [2026, 10, 9],  p: [2026, 10, 19] } // Q3
-        ],
-        2027: [
-            { r: [2027, 1, 9],  p: [2027, 1, 19] }  // Q4'26 (лютий 27)
-        ]
-    };
-
-    // Логіка: якщо ми в Q4 (curT=3), то дедлайни в лютому НАСТУПНОГО року
-    let data;
-    if (curT === 3) {
-        data = taxCalendar[curY + 1] ? taxCalendar[curY + 1][0] : null;
-    } else {
-        data = taxCalendar[curY] ? taxCalendar[curY][curT + 1] : null;
+    // Функція для перенесення вихідних на понеділок
+    function adjustForWeekend(date) {
+        const day = date.getDay(); // 0 - неділя, 6 - субота
+        if (day === 0) date.setDate(date.getDate() + 1); // Нд -> Пн
+        else if (day === 6) date.setDate(date.getDate() + 2); // Сб -> Пн
+        return date;
     }
 
-    if (!data) {
-        document.getElementById('dl-report-days').innerText = "Н/Д";
-        document.getElementById('dl-tax-days').innerText = "Н/Д";
-        return;
-    }
+    // 1. Визначаємо останній день обраного кварталу
+    // curT: 0(Q1), 1(Q2), 2(Q3), 3(Q4)
+    // Останні дні: 31.03, 30.06, 30.09, 31.12
+    const quarterEndMonths = [2, 5, 8, 11]; // Березень, Червень, Вересень, Грудень
+    const quarterEndDays = [31, 30, 30, 31];
+    
+    const endDate = new Date(curY, quarterEndMonths[curT], quarterEndDays[curT]);
 
-    const reportDate = new Date(data.r[0], data.r[1], data.r[2]);
-    const paymentDate = new Date(data.p[0], data.p[1], data.p[2]);
+    // 2. Рахуємо дедлайни (40 та 50 днів)
+    let reportDate = new Date(endDate);
+    reportDate.setDate(reportDate.getDate() + 40);
+    reportDate = adjustForWeekend(reportDate);
+
+    let paymentDate = new Date(endDate);
+    paymentDate.setDate(paymentDate.getDate() + 50);
+    paymentDate = adjustForWeekend(paymentDate);
+
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    function updateCard(id, date) {
-        const diff = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
+    function updateCard(id, targetDate) {
+        const diff = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
         const card = document.getElementById(`dl-${id}-card`);
         const daysEl = document.getElementById(`dl-${id}-days`);
         const dateEl = document.getElementById(`dl-${id}-date`);
 
-        dateEl.innerText = date.toLocaleDateString('uk-UA');
-        
+        dateEl.innerText = targetDate.toLocaleDateString('uk-UA');
+        card.classList.remove('urgent', 'safe', 'passed');
+
         if (diff < 0) {
             daysEl.innerText = "Минув";
-            card.classList.remove('urgent');
-        } else if (diff === 0) {
-            daysEl.innerText = "СЬОГОДНІ";
-            card.classList.add('urgent');
+            card.classList.add('passed');
         } else {
-            daysEl.innerText = `${diff} дн.`;
+            daysEl.innerText = (diff === 0) ? "СЬОГОДНІ" : `${diff} дн.`;
             if (diff <= 9) card.classList.add('urgent');
-            else card.classList.remove('urgent');
+            else card.classList.add('safe');
         }
     }
 
