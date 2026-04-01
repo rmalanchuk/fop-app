@@ -162,6 +162,17 @@ async function calcIncome(transactions, currencyCode) {
     return total;
 }
 
+// ── Функція авторизації ──
+function auth(req, res) {
+    const clientKey = req.headers['x-secret-key'];
+    if (clientKey !== SECRET_KEY) {
+        console.error('Auth failed: invalid secret key');
+        res.status(401).send('Unauthorized');
+        return false;
+    }
+    return true;
+}
+
 // ── API Endpoints ──
 app.get('/accounts', async (req, res) => {
     if (!auth(req, res)) return;
