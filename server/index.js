@@ -60,39 +60,59 @@ async function saveCarData(entry) {
 // ── Логіка Telegram Бота ──
 if (TELEGRAM_TOKEN) {
     const bot = new Telegraf(TELEGRAM_TOKEN);
+
+    // Створюємо постійну кнопку під полем вводу
+    const mainKeyboard = {
+        reply_markup: {
+            keyboard: [
+                [{ text: '⛽️ Остання ціна' }]
+            ],
+            resize_keyboard: true // Робить кнопку компактною
+        }
+    };
+
     bot.telegram.setMyCommands([
-        { command: 'price', description: 'Дізнатися останню ціну палива' }
+        { command: 'price', description: 'Дізнатися останню ціну палива' },
+        { command: 'start', description: 'Запустити бота' }
     ]);
-    bot.command('price', async (ctx) => {
+
+    // Обробка старту (щоб з'явилася кнопка)
+    bot.start((ctx) => ctx.reply('Вітаю! Я готовий записувати витрати твого BMW X1.', mainKeyboard));
+
+    // Функція-помічник для виводу ціни (щоб не дублювати код)
+    const sendLastPrice = async (ctx) => {
         try {
             const data = await getCarData();
             const lastPrice = data.lastPrice || 87.99;
-            
             ctx.replyWithMarkdown(
                 `⛽️ **Остання ціна в базі:**\n` +
                 `${lastPrice} грн/л\n\n` +
-                `_Це значення буде використано за замовчуванням при новому записі._`
+                `_Це значення буде використано автоматично, якщо не вказати ціну при записі._`,
+                mainKeyboard
             );
         } catch (e) {
-            console.error('Error in /price command:', e);
-            ctx.reply('Не вдалося отримати ціну з бази.');
+            ctx.reply('Не вдалося отримати ціну з бази.', mainKeyboard);
         }
-    });
+    };
+
+    // Слухаємо і команду, і натискання кнопки
+    bot.command('price', sendLastPrice);
+    bot.hears('⛽️ Остання ціна', sendLastPrice);
+
     bot.on('text', async (ctx) => {
         let text = ctx.message.text.trim();
-        const isTest = text.toLowerCase().startsWith('тест');
         
-        if (isTest) {
-            text = text.replace(/тест/i, '').trim();
-        }
+        // Ігноруємо текст кнопки, щоб не спрацював формат [Сума] [Пробіг]
+        if (text === '⛽️ Остання ціна') return;
+
+        const isTest = text.toLowerCase().startsWith('тест');
+        if (isTest) text = text.replace(/тест/i, '').trim();
 
         const parts = text.split(/\s+/).map(p => p.replace(',', '.'));
 
         if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
             const amount = parseFloat(parts[0]);
             const odo = parseInt(parts[1]);
-            
-            // Отримуємо останні дані з Supabase, щоб знати останню ціну
             const data = await getCarData();
             
             let price = (parts.length >= 3 && !isNaN(parts[2])) 
@@ -109,7 +129,6 @@ if (TELEGRAM_TOKEN) {
                 priceAtTime: price
             };
 
-            // Якщо це не тест — зберігаємо в Supabase
             if (!isTest) {
                 await saveCarData(entry); 
             }
@@ -123,15 +142,16 @@ if (TELEGRAM_TOKEN) {
                 `💰 Сума: ${amount} грн\n` +
                 `🛣 Пробіг: ${odo} км\n` +
                 `⛽️ Літрів: ~${liters} л\n\n` +
-                `${isTest ? '_Дані не було збережено._' : '_Дані успішно збережено в Supabase._'}`
+                `${isTest ? '_Дані не збережено._' : '_Дані в Supabase._'}`,
+                mainKeyboard // Додаємо кнопку до кожної відповіді
             );
         } else {
-            ctx.reply('Формат: [Сума] [Пробіг] [Ціна (опційно)]\nПриклад: 2500 216000\nДля тесту: Тест 2500 216000');
+            ctx.reply('Формат: [Сума] [Пробіг] [Ціна (опційно)]\nПриклад: 2500 216000', mainKeyboard);
         }
     });
 
     bot.launch()
-        .then(() => console.log('Telegram Bot started with Supabase support'))
+        .then(() => console.log('Telegram Bot started with Supabase and Keyboard support'))
         .catch(err => console.error('Bot launch error:', err));
 }
 
