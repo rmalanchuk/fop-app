@@ -7,6 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>ФОП Роман</title>
     <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --ink: #0f0f12; --paper: #f5f4f0; --card: #ffffff;
@@ -429,47 +430,22 @@
 
     // ── Оплата ──
     function openPayment(type) {
-    const isEP = type === 'ep';
+        const isEP = type === 'ep';
 
-    let qSums = [0,0,0,0];
-    for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
-    let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
-    let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
-    const amount = isEP
-        ? (cumInc * 0.05) - (prvInc * 0.05)
-        : (cumInc * 0.01) - (prvInc * 0.01);
+        let qSums = [0,0,0,0];
+        for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
+        let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
+        let prvInc = 0; for(let i=0; i<curT; i++) prvInc += qSums[i];
+        const amount = isEP
+            ? (cumInc * 0.05) - (prvInc * 0.05)
+            : (cumInc * 0.01) - (prvInc * 0.01);
 
-    if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
-        showToast('⚙️ Спочатку налаштуй ІПН та IBAN');
-        openSettings();
-        return;
-    }
+        if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
+            showToast('⚙️ Спочатку налаштуй ІПН та IBAN');
+            openSettings();
+            return;
+        }
 
-    const iban = isEP ? cfg.ibanEP : cfg.ibanVZ;
-    const taxName = isEP ? 'Єдиний податок' : 'Військовий збір';
-    const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1} кв ${curY}р.;;;`;
-
-    currentIbanToCopy = iban;
-
-    document.getElementById('pay-title').innerText = `Оплата: ${taxName}`;
-    document.getElementById('pay-amount').innerText = amount.toFixed(2) + ' ₴';
-    document.getElementById('pay-purpose').innerText = purpose;
-    document.getElementById('pay-iban').innerText = iban;
-
-    // ГЕНЕРАЦІЯ ЧЕРЕЗ GOOGLE API (БЕЗ БІБЛІОТЕК)
-    const qrBox = document.getElementById('qrcode');
-    const qrData = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount.toFixed(2)}|Currency=UAH|Purpose=${purpose}`;
-    const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(qrData)}`;
-    
-    qrBox.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="display:block; margin:0 auto;">`;
-
-    // ФІКС ПОСИЛАННЯ ДЛЯ МОНОБАНКУ
-    // На комп'ютері воно завжди буде видавати помилку "failed to launch", 
-    // бо на ПК немає додатка Monobank. Це посилання спрацює ТІЛЬКИ на телефоні.
-    document.getElementById('pay-deeplink').href = `iban:${iban}?amount=${amount.toFixed(2)}&memo=${encodeURIComponent(purpose)}`;
-
-    openModal('pay-modal-overlay');
-}
         const iban = isEP ? cfg.ibanEP : cfg.ibanVZ;
         const taxName = isEP ? 'Єдиний податок' : 'Військовий збір';
         const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1} кв ${curY}р.;;;`;
