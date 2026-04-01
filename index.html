@@ -371,16 +371,18 @@
     </a>
 </div>
 
-<div class="io-wrap">
-    <button class="io-btn export" onclick="exportData()">⬆ Експорт JSON</button>
-    <button class="io-btn import" onclick="document.getElementById('import-file').click()">⬇ Імпорт JSON</button>
-    <input type="file" id="import-file" accept=".json,application/json" onchange="importData(event)">
-</div>
-
 <div class="modal-overlay" id="modal-overlay">
     <div class="modal" id="modal">
         <div class="modal-handle"></div>
         <div class="modal-title">Налаштування</div>
+        <div class="setting-group" style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px;">
+            <span class="setting-label">Резервна копія (всі дані)</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button class="io-btn export" style="background: var(--paper); color: var(--ink); border: 1px solid var(--border); padding: 10px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer;" onclick="exportData()">⬆ Експорт</button>
+                <button class="io-btn import" style="background: var(--paper); color: var(--ink); border: 1px solid var(--border); padding: 10px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer;" onclick="document.getElementById('import-file').click()">⬇ Імпорт</button>
+            </div>
+            <input type="file" id="import-file" accept=".json,application/json" onchange="importData(event)" style="display:none;">
+        </div>
         <div class="setting-group">
             <span class="setting-label">Секретний ключ сервера</span>
             <input type="password" class="setting-input" id="cfg-secret" placeholder="Введи секретний ключ">
@@ -727,31 +729,63 @@
     }
 
     function exportData() {
-        const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `fop_backup_${curY}_Q${curT+1}.json`;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); URL.revokeObjectURL(url);
-        showToast('✓ Дані збережено');
-    }
+    // Створюємо копію конфігу без секретного ключа
+    const cfgToExport = { ...cfg };
+    delete cfgToExport.secret; 
 
-    function importData(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                db = JSON.parse(e.target.result);
+    const fullBackup = {
+        db: db,
+        profile: cfgToExport,
+        exportDate: new Date().toISOString(),
+        version: "2.0"
+    };
+
+    const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fop_full_backup_${new Date().toLocaleDateString('uk-UA')}.json`;
+    document.body.appendChild(a); 
+    a.click();
+    document.body.removeChild(a); 
+    URL.revokeObjectURL(url);
+    showToast('✓ Повний бекап створено');
+}
+
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const imported = JSON.parse(e.target.result);
+            
+            // Перевіряємо, чи це повний бекап або старий формат (тільки db)
+            if (imported.db && imported.profile) {
+                // Новий формат
+                db = imported.db;
+                // Імпортуємо профіль, але зберігаємо поточний secret, якщо він є
+                const currentSecret = cfg.secret;
+                cfg = { ...imported.profile, secret: currentSecret };
+                
                 localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-                updateUI();
-                showToast('✓ Імпортовано');
-            } catch(_) { showToast('✗ Помилка файлу'); }
-        };
-        reader.readAsText(file);
-    }
+                localStorage.setItem('fop_cfg', JSON.stringify(cfg));
+            } else {
+                // Старий формат (сумісність)
+                db = imported;
+                localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+            }
 
+            updateUI();
+            openSettings(); // Оновлюємо поля в налаштуваннях після імпорту
+            showToast('✓ Дані та профіль імпортовано');
+        } catch(err) { 
+            console.error(err);
+            showToast('✗ Помилка формату файлу'); 
+        }
+    };
+    reader.readAsText(file);
+}
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;
