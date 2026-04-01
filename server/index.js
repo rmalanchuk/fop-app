@@ -29,19 +29,29 @@ async function getCarData() {
 
     if (error) {
         console.error('Supabase fetch error:', error);
-        return { fuel: [], lastOdo: 0 };
+        return { fuel: [], lastOdo: 0, lastPrice: 87.99 };
     }
 
-    const lastOdo = data.length > 0 ? Math.max(...data.map(d => d.odo)) : 0;
-    const lastPrice = data.length > 0 ? data[data.length - 1].priceAtTime : 87.99;
+    const lastOdo = data && data.length > 0 ? Math.max(...data.map(d => d.odo)) : 0;
+    // Зверни увагу: тут тепер price_at_time
+    const lastPrice = data && data.length > 0 ? data[data.length - 1].price_at_time : 87.99;
 
-    return { fuel: data, lastOdo, lastPrice };
+    return { fuel: data || [], lastOdo, lastPrice };
 }
 
 async function saveCarData(entry) {
+    // Переконуємося, що об'єкт для бази має правильну назву ключа
+    const dbEntry = {
+        date: entry.date,
+        amount: entry.amount,
+        odo: entry.odo,
+        liters: entry.liters,
+        price_at_time: entry.priceAtTime // Мапимо JS-стиль на SQL-стиль
+    };
+
     const { error } = await supabase
         .from('car_stats')
-        .insert([entry]);
+        .insert([dbEntry]);
 
     if (error) {
         console.error('Supabase insert error:', error);
@@ -88,7 +98,7 @@ if (TELEGRAM_TOKEN) {
                 amount,
                 odo,
                 liters,
-                priceAtTime: price
+                priceattime: price
             };
 
             // Якщо це не тест — зберігаємо в Supabase
