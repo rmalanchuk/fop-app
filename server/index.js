@@ -8,6 +8,7 @@ const path = require('path');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '')));
 
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -181,6 +182,10 @@ app.get('/quarter-income', async (req, res) => {
         }
         res.json(results);
     } catch (e) { res.status(500).send(e.message); }
+});
+
+app.get('/car', (req, res) => {
+    res.sendFile(path.join(__dirname, 'car.html'));
 });
 
 const PORT = process.env.PORT || 3000;
