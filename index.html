@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
@@ -7,6 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>ФОП Роман</title>
     <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --ink: #0f0f12; --paper: #f5f4f0; --card: #ffffff;
@@ -16,94 +16,96 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Manrope', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
 
-```
-    .topbar { background: var(--ink); color: white; padding: 18px 20px 16px; display: flex; justify-content: space-between; align-items: center; }
-    .topbar-name { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.9; }
-    .topbar-right { display: flex; align-items: center; gap: 10px; }
-    .topbar-badge { font-size: 10px; font-weight: 600; background: var(--accent2); color: var(--ink); padding: 3px 8px; border-radius: 20px; letter-spacing: 0.04em; }
-    .settings-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .topbar { background: var(--ink); color: white; padding: 18px 20px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .topbar-name { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.9; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+        .topbar-badge { font-size: 10px; font-weight: 600; background: var(--accent2); color: var(--ink); padding: 3px 8px; border-radius: 20px; letter-spacing: 0.04em; }
+        .settings-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-    .year-strip { background: var(--ink); display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 20px 18px; }
-    .year-btn { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.2); background: transparent; color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
-    .year-btn:active { background: rgba(255,255,255,0.15); }
-    .year-display { font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 900; color: white; min-width: 90px; text-align: center; }
+        .year-strip { background: var(--ink); display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 20px 18px; }
+        .year-btn { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.2); background: transparent; color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+        .year-btn:active { background: rgba(255,255,255,0.15); }
+        .year-display { font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 900; color: white; min-width: 90px; text-align: center; }
 
-    .tabs-wrap { padding: 20px 16px 0; }
-    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); background: rgba(0,0,0,0.06); border-radius: 14px; padding: 3px; gap: 2px; }
-    .tab { text-align: center; padding: 10px 4px; border-radius: 11px; font-weight: 700; font-size: 13px; cursor: pointer; color: var(--muted); letter-spacing: 0.03em; transition: all 0.2s; font-family: 'Unbounded', sans-serif; }
-    .tab.active { background: white; color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .tabs-wrap { padding: 20px 16px 0; }
+        .tabs { display: grid; grid-template-columns: repeat(4, 1fr); background: rgba(0,0,0,0.06); border-radius: 14px; padding: 3px; gap: 2px; }
+        .tab { text-align: center; padding: 10px 4px; border-radius: 11px; font-weight: 700; font-size: 13px; cursor: pointer; color: var(--muted); letter-spacing: 0.03em; transition: all 0.2s; font-family: 'Unbounded', sans-serif; }
+        .tab.active { background: white; color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 
-    .card { margin: 16px; background: var(--card); border-radius: 24px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
-    .card-inner { padding: 20px; }
+        .card { margin: 16px; background: var(--card); border-radius: 24px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
+        .card-inner { padding: 20px; }
 
-    .mono-row { display: flex; gap: 8px; margin-bottom: 18px; }
-    .mono-btn { flex: 1; background: #000; color: white; border: none; border-radius: 14px; padding: 13px; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s; }
-    .mono-btn:active { opacity: 0.75; }
-    .mono-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .cache-reset-btn { background: white; color: var(--danger); border: 1.5px solid var(--danger); border-radius: 14px; padding: 13px 14px; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
-    .cache-reset-btn:active { opacity: 0.75; }
+        .mono-row { display: flex; gap: 8px; margin-bottom: 18px; }
+        .mono-btn { flex: 1; background: #000; color: white; border: none; border-radius: 14px; padding: 13px; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s; }
+        .mono-btn:active { opacity: 0.75; }
+        .mono-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .cache-reset-btn { background: white; color: var(--danger); border: 1.5px solid var(--danger); border-radius: 14px; padding: 13px 14px; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+        .cache-reset-btn:active { opacity: 0.75; }
 
-    .month-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-    .month-row:last-child { border-bottom: none; }
-    .month-label { font-size: 15px; font-weight: 600; color: var(--ink); }
-    .input-amt { width: 52%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 16px; font-family: 'Manrope', sans-serif; font-weight: 700; text-align: right; outline: none; color: var(--ink); background: var(--paper); transition: border-color 0.15s, background 0.15s; }
-    .input-amt:focus { border-color: var(--accent); background: #eff6ff; }
-    .input-amt.filled { border-color: var(--success); background: #f0fdf4; }
+        .month-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .month-row:last-child { border-bottom: none; }
+        .month-label { font-size: 15px; font-weight: 600; color: var(--ink); }
+        .input-amt { width: 52%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 16px; font-family: 'Manrope', sans-serif; font-weight: 700; text-align: right; outline: none; color: var(--ink); background: var(--paper); transition: border-color 0.15s, background 0.15s; }
+        .input-amt:focus { border-color: var(--accent); background: #eff6ff; }
+        .input-amt.filled { border-color: var(--success); background: #f0fdf4; }
 
-    .results-area { background: var(--ink); border-radius: 20px; margin: 0 16px 16px; padding: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
-    .results-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 14px; font-family: 'Unbounded', sans-serif; }
-    .result-item { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
-    .result-item:last-of-type { margin-bottom: 0; }
-    .result-name { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.6); }
-    .result-val { font-family: 'Unbounded', sans-serif; font-size: 20px; font-weight: 700; color: white; }
-    .result-val.vz { color: var(--accent2); }
+        /* Стилі результатів та кнопок оплати */
+        .results-area { background: var(--ink); border-radius: 20px; margin: 0 16px 16px; padding: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+        .results-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 14px; font-family: 'Unbounded', sans-serif; }
+        .result-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer; }
+        .result-item:last-of-type { margin-bottom: 0; }
+        .result-left { display: flex; flex-direction: column; gap: 4px; }
+        .result-name { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.6); }
+        .result-val { font-family: 'Unbounded', sans-serif; font-size: 20px; font-weight: 700; color: white; }
+        .result-val.vz { color: var(--accent2); }
+        .pay-mini-btn { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 10px; font-family: 'Manrope'; font-size: 11px; font-weight: 700; }
 
-    .det-wrap { margin: 0 16px 16px; }
-    .det-btn { width: 100%; background: white; border: 1.5px solid var(--border); border-radius: 14px; padding: 13px; font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; }
-    .det-btn:active { background: #eff6ff; }
-    .det-arrow { transition: transform 0.2s; display: inline-block; }
-    .det-arrow.open { transform: rotate(180deg); }
-    .details { display: none; background: white; border: 1.5px solid var(--border); border-radius: 14px; margin-top: 8px; overflow: hidden; }
-    .field-item { display: flex; align-items: flex-start; padding: 12px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
-    .field-item:last-child { border-bottom: none; }
-    .f-num { background: var(--accent2); color: var(--ink); font-weight: 800; padding: 2px 7px; border-radius: 6px; font-size: 11px; min-width: 28px; text-align: center; margin-top: 1px; font-family: 'Unbounded', sans-serif; }
-    .f-num.dash { background: var(--border); color: var(--muted); }
-    .f-body { flex: 1; }
-    .f-sum { font-weight: 700; color: var(--accent); font-size: 14px; display: block; margin-bottom: 2px; font-family: 'Unbounded', sans-serif; }
-    .f-desc { color: var(--muted); font-size: 12px; line-height: 1.4; }
+        .det-wrap { margin: 0 16px 16px; }
+        .det-btn { width: 100%; background: white; border: 1.5px solid var(--border); border-radius: 14px; padding: 13px; font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; }
+        .det-btn:active { background: #eff6ff; }
+        .det-arrow { transition: transform 0.2s; display: inline-block; }
+        .det-arrow.open { transform: rotate(180deg); }
+        .details { display: none; background: white; border: 1.5px solid var(--border); border-radius: 14px; margin-top: 8px; overflow: hidden; }
+        .field-item { display: flex; align-items: flex-start; padding: 12px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
+        .field-item:last-child { border-bottom: none; }
+        .f-num { background: var(--accent2); color: var(--ink); font-weight: 800; padding: 2px 7px; border-radius: 6px; font-size: 11px; min-width: 28px; text-align: center; margin-top: 1px; font-family: 'Unbounded', sans-serif; }
+        .f-num.dash { background: var(--border); color: var(--muted); }
+        .f-body { flex: 1; }
+        .f-sum { font-weight: 700; color: var(--accent); font-size: 14px; display: block; margin-bottom: 2px; font-family: 'Unbounded', sans-serif; }
+        .f-desc { color: var(--muted); font-size: 12px; line-height: 1.4; }
 
-    .io-wrap { margin: 0 16px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .io-btn { border: none; border-radius: 14px; padding: 13px; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.15s; }
-    .io-btn:active { opacity: 0.75; }
-    .io-btn.export { background: var(--success); color: white; }
-    .io-btn.import { background: white; color: var(--ink); border: 1.5px solid var(--border); }
-    #import-file { display: none; }
+        .io-wrap { margin: 0 16px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .io-btn { border: none; border-radius: 14px; padding: 13px; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.15s; }
+        .io-btn:active { opacity: 0.75; }
+        .io-btn.export { background: var(--success); color: white; }
+        .io-btn.import { background: white; color: var(--ink); border: 1.5px solid var(--border); }
+        #import-file { display: none; }
 
-    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
-    .modal-overlay.open { display: flex; }
-    .modal { background: white; border-radius: 24px 24px 0 0; padding: 24px 20px 40px; width: 100%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
-    .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
-    .modal-title { font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
-    .setting-group { margin-bottom: 20px; }
-    .setting-label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
-    .setting-input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 15px; font-family: 'Manrope', sans-serif; outline: none; color: var(--ink); }
-    .setting-input:focus { border-color: var(--accent); }
-    .account-list { display: flex; flex-direction: column; gap: 8px; }
-    .account-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.15s; }
-    .account-item.selected { border-color: var(--accent); background: #eff6ff; }
-    .account-item-left { display: flex; flex-direction: column; gap: 2px; }
-    .account-currency { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; }
-    .account-id { font-size: 11px; color: var(--muted); }
-    .account-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; transition: all 0.15s; }
-    .account-item.selected .account-check { background: var(--accent); border-color: var(--accent); }
-    .fetch-accounts-btn { width: 100%; padding: 13px; background: var(--ink); color: white; border: none; border-radius: 12px; font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; }
-    .save-btn { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-end; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: white; border-radius: 24px 24px 0 0; padding: 24px 20px 40px; width: 100%; max-width: 500px; max-height: 95vh; overflow-y: auto; }
+        .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+        .modal-title { font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+        .setting-group { margin-bottom: 20px; }
+        .setting-label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
+        .setting-input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 15px; font-family: 'Manrope', sans-serif; outline: none; color: var(--ink); margin-bottom: 8px; }
+        .setting-input:focus { border-color: var(--accent); }
+        
+        .account-list { display: flex; flex-direction: column; gap: 8px; }
+        .account-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.15s; }
+        .account-item.selected { border-color: var(--accent); background: #eff6ff; }
+        .account-item-left { display: flex; flex-direction: column; gap: 2px; }
+        .account-currency { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; }
+        .account-id { font-size: 11px; color: var(--muted); }
+        .account-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; transition: all 0.15s; }
+        .account-item.selected .account-check { background: var(--accent); border-color: var(--accent); }
+        
+        .fetch-accounts-btn { width: 100%; padding: 13px; background: var(--ink); color: white; border: none; border-radius: 12px; font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+        .save-btn { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; }
 
-    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--ink); color: white; padding: 11px 20px; border-radius: 30px; font-size: 13px; font-weight: 600; white-space: nowrap; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; pointer-events: none; }
-    .toast.show { transform: translateX(-50%) translateY(0); }
-</style>
-```
-
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--ink); color: white; padding: 11px 20px; border-radius: 30px; font-size: 13px; font-weight: 600; white-space: nowrap; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; pointer-events: none; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
 </head>
 <body>
 
@@ -145,13 +147,19 @@
 
 <div class="results-area">
     <div class="results-label">До сплати</div>
-    <div class="result-item">
-        <span class="result-name">Єдиний податок (5%)</span>
-        <span class="result-val" id="pay-ep">0.00 ₴</span>
+    <div class="result-item" onclick="openPayment('ep')">
+        <div class="result-left">
+            <span class="result-name">Єдиний податок (5%)</span>
+            <span class="result-val" id="pay-ep">0.00 ₴</span>
+        </div>
+        <button class="pay-mini-btn">💳 Оплатити</button>
     </div>
-    <div id="vz-row" class="result-item" style="display:none;">
-        <span class="result-name">Військовий збір (1%)</span>
-        <span class="result-val vz" id="pay-vz">0.00 ₴</span>
+    <div id="vz-row" class="result-item" onclick="openPayment('vz')" style="display:none; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px; margin-top:12px;">
+        <div class="result-left">
+            <span class="result-name">Військовий збір (1%)</span>
+            <span class="result-val vz" id="pay-vz">0.00 ₴</span>
+        </div>
+        <button class="pay-mini-btn">💳 Оплатити</button>
     </div>
 </div>
 
@@ -172,19 +180,51 @@
 <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
     <div class="modal" id="modal">
         <div class="modal-handle"></div>
-        <div class="modal-title">Налаштування Mono</div>
+        <div class="modal-title">Налаштування</div>
         <div class="setting-group">
             <span class="setting-label">Секретний ключ сервера</span>
             <input type="password" class="setting-input" id="cfg-secret" placeholder="Введи секретний ключ">
         </div>
+
         <div class="setting-group">
-            <span class="setting-label">Рахунки Mono (можна обрати кілька)</span>
+            <span class="setting-label">Реквізити ФОП (для QR)</span>
+            <input type="text" class="setting-input" id="cfg-inn" placeholder="Твій ІПН (10 цифр)">
+            <input type="text" class="setting-input" id="cfg-iban-ep" placeholder="IBAN для Єдиного податку">
+            <input type="text" class="setting-input" id="cfg-iban-vz" placeholder="IBAN для Військового збору">
+        </div>
+
+        <div class="setting-group">
+            <span class="setting-label">Рахунки Mono</span>
             <div class="account-list" id="account-list">
                 <div style="color:var(--muted);font-size:13px;padding:8px 0;">Введи ключ і натисни "Завантажити рахунки"</div>
             </div>
             <button class="fetch-accounts-btn" onclick="fetchAccounts()">Завантажити рахунки</button>
         </div>
-        <button class="save-btn" onclick="saveSettings()">Зберегти</button>
+        <button class="save-btn" onclick="saveSettings()">Зберегти все</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="pay-modal-overlay" onclick="handlePayOverlayClick(event)">
+    <div class="modal" style="text-align:center;">
+        <div class="modal-handle"></div>
+        <h2 id="pay-title" style="font-family:'Unbounded'; font-size:16px; margin-bottom:8px;">Оплата</h2>
+        <div id="pay-amount" style="font-family:'Unbounded'; font-size:28px; font-weight:900; margin-bottom:20px;">0.00 ₴</div>
+        
+        <div id="qrcode-wrapper" style="display:inline-block; padding:15px; background:white; border-radius:18px; margin-bottom:15px; border: 1.5px solid var(--border);">
+            <div id="qrcode"></div>
+        </div>
+        
+        <a id="pay-deeplink" href="#" class="save-btn" style="text-decoration:none; display:block; margin-bottom:12px; background:#000;">
+            Відкрити в Monobank
+        </a>
+        
+        <div style="text-align:left; background:var(--paper); padding:14px; border-radius:14px; font-size:12px; line-height:1.5; margin-bottom:15px;">
+            <p><strong>Призначення:</strong> <span id="pay-purpose" style="word-break: break-all;"></span></p>
+            <p style="margin-top:8px;"><strong>IBAN:</strong> <span id="pay-iban" style="word-break: break-all; font-family: monospace;"></span></p>
+        </div>
+        
+        <button class="fetch-accounts-btn" style="background:var(--border); color:var(--ink);" onclick="copyCurrentIban()">Копіювати IBAN</button>
+        <button class="det-btn" style="margin-top:10px; border:none;" onclick="closePayModal()">Закрити</button>
     </div>
 </div>
 
@@ -203,12 +243,12 @@
     const Q_MONTHS = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
 
     let db  = JSON.parse(localStorage.getItem('fop_vFinal_v2')) || {};
-    // cfg.accounts = [{id, currencyCode}, ...] — масив обраних рахунків
-    let cfg = JSON.parse(localStorage.getItem('fop_cfg')) || { secret: '', accounts: [] };
-    // міграція зі старого формату (accountId + currencyCode)
-    if (cfg.accountId && !cfg.accounts?.length) {
-        cfg.accounts = [{ id: cfg.accountId, currencyCode: cfg.currencyCode || 980 }];
-    }
+    // Додаємо нові поля в конфиг
+    let cfg = JSON.parse(localStorage.getItem('fop_cfg')) || { 
+        secret: '', accounts: [], inn: '', ibanEP: '', ibanVZ: '' 
+    };
+
+    let currentIbanToCopy = '';
 
     function changeYear(delta) {
         curY = (curY || 2025) + delta;
@@ -257,6 +297,7 @@
         const vzRow = document.getElementById('vz-row');
         if(curY >= 2025) { vzRow.style.display = 'flex'; document.getElementById('pay-vz').innerText = vz.pay.toFixed(2) + ' ₴'; }
         else { vzRow.style.display = 'none'; }
+        
         let detHtml = `
             <div class="field-item"><div class="f-num dash">—</div><div class="f-body"><span class="f-sum">${qSums[curT].toFixed(2)} ₴</span><span class="f-desc">Зароблено за квартал</span></div></div>
             <div class="field-item"><div class="f-num">6</div><div class="f-body"><span class="f-sum">${cumInc.toFixed(2)} ₴</span><span class="f-desc">Всього зароблено за існуючий рік</span></div></div>
@@ -284,92 +325,77 @@
         arrow.classList.toggle('open', !open);
     }
 
-    // ── Кеш ──
-    function cacheKey(y, q, i) { return `mono_cache_${y}_${q}_${i}`; }
+    // ── Модуль Оплати ──
+    function openPayment(type) {
+        const isEP = type === 'ep';
+        const amountStr = document.getElementById(isEP ? 'pay-ep' : 'pay-vz').innerText.replace(' ₴', '');
+        const amount = parseFloat(amountStr);
 
-    function isMonthClosed(monthIdx) {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth();
-        if (parseInt(curY) < currentYear) return true;
-        if (parseInt(curY) > currentYear) return false;
-        return monthIdx < currentMonth;
-    }
-
-    function resetCache() {
-        for (let i = 0; i < 3; i++) localStorage.removeItem(cacheKey(curY, curT, i));
-        showToast('🗑 Кеш кварталу скинуто');
-    }
-
-    // ── Завантажити з Mono ──
-    async function fetchFromMono() {
-        if (!cfg.secret) { openSettings(); showToast('⚙️ Спочатку налаштуй підключення'); return; }
-        if (!cfg.accounts?.length) { openSettings(); showToast('⚙️ Вибери рахунки в налаштуваннях'); return; }
-
-        const btn = document.getElementById('mono-btn');
-        const btnText = document.getElementById('mono-btn-text');
-        btn.disabled = true;
-
-        const quarterMonths = Q_MONTHS[curT];
-        const toFetch = [];
-
-        for (let i = 0; i < 3; i++) {
-            const monthIdx = quarterMonths[i];
-            const cached = localStorage.getItem(cacheKey(curY, curT, i));
-            if (cached !== null && isMonthClosed(monthIdx)) {
-                db[`${curY}-${curT}-${i}`] = JSON.parse(cached);
-            } else {
-                toFetch.push(i);
-            }
-        }
-
-        if (toFetch.length === 0) {
-            localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-            updateUI();
-            showToast('✅ Дані з кешу');
-            btn.disabled = false;
+        // Перевірка реквізитів
+        if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
+            showToast('⚙️ Спочатку налаштуй ІПН та IBAN');
+            openSettings();
             return;
         }
 
-        btnText.textContent = `⏳ ${toFetch.length} міс. з Mono...`;
+        const iban = isEP ? cfg.ibanEP : cfg.ibanVZ;
+        const taxName = isEP ? "Єдиний податок" : "Військовий збір";
+        const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1} кв ${curY}р.;;;`;
+        
+        currentIbanToCopy = iban;
 
-        try {
-            const accountsParam = encodeURIComponent(JSON.stringify(cfg.accounts));
-            const url = `${SERVER}/quarter-income?year=${curY}&quarter=${curT + 1}&months=${toFetch.join(',')}&accounts=${accountsParam}`;
-            const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
-            if (!r.ok) throw new Error(`Сервер: HTTP ${r.status}`);
-            const data = await r.json();
+        // Заповнення модалки
+        document.getElementById('pay-title').innerText = `Оплата: ${taxName}`;
+        document.getElementById('pay-amount').innerText = amountStr + ' ₴';
+        document.getElementById('pay-purpose').innerText = purpose;
+        document.getElementById('pay-iban').innerText = iban;
 
-            for (const i of toFetch) {
-                const val = data[i];
-                if (val !== undefined && val !== 'limit' && !isNaN(val)) {
-                    const rounded = parseFloat(val).toFixed(2);
-                    db[`${curY}-${curT}-${i}`] = rounded;
-                    if (isMonthClosed(Q_MONTHS[curT][i])) {
-                        localStorage.setItem(cacheKey(curY, curT, i), JSON.stringify(rounded));
-                    }
-                } else if (val === 'limit') {
-                    showToast('⚠️ Mono: ліміт запитів, спробуй пізніше');
-                }
-            }
+        // Генерація QR
+        const qrBox = document.getElementById('qrcode');
+        qrBox.innerHTML = '';
+        const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount}|Currency=UAH|Purpose=${purpose}`;
+        new QRCode(qrBox, { text: qrStr, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
 
-            localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
-            updateUI();
-            showToast('✅ Оновлено з Mono');
-        } catch(e) {
-            showToast('✗ ' + e.message);
-        } finally {
-            btn.disabled = false;
-            btnText.textContent = 'Завантажити з Mono';
-        }
+        // Deep Link
+        document.getElementById('pay-deeplink').href = `iban:${iban}?amount=${amount}&memo=${encodeURIComponent(purpose)}`;
+
+        document.getElementById('pay-modal-overlay').classList.add('open');
     }
 
-    // ── Settings ──
+    function closePayModal() {
+        document.getElementById('pay-modal-overlay').classList.remove('open');
+    }
+
+    function handlePayOverlayClick(e) {
+        if (e.target.id === 'pay-modal-overlay') closePayModal();
+    }
+
+    function copyCurrentIban() {
+        navigator.clipboard.writeText(currentIbanToCopy);
+        showToast('✅ IBAN копійовано');
+    }
+
+    // ── Налаштування ──
     function openSettings() {
         document.getElementById('cfg-secret').value = cfg.secret || '';
+        document.getElementById('cfg-inn').value = cfg.inn || '';
+        document.getElementById('cfg-iban-ep').value = cfg.ibanEP || '';
+        document.getElementById('cfg-iban-vz').value = cfg.ibanVZ || '';
         renderAccountList(cfg.cachedAccounts || []);
         document.getElementById('modal-overlay').classList.add('open');
     }
+
+    function saveSettings() {
+        cfg.secret = document.getElementById('cfg-secret').value.trim();
+        cfg.inn = document.getElementById('cfg-inn').value.trim();
+        cfg.ibanEP = document.getElementById('cfg-iban-ep').value.trim();
+        cfg.ibanVZ = document.getElementById('cfg-iban-vz').value.trim();
+        localStorage.setItem('fop_cfg', JSON.stringify(cfg));
+        closeSettings();
+        showToast('✓ Налаштування збережено');
+        calculate();
+    }
+
     function handleOverlayClick(e) {
         if (e.target === document.getElementById('modal-overlay')) closeSettings();
     }
@@ -377,6 +403,7 @@
         document.getElementById('modal-overlay').classList.remove('open');
     }
 
+    // ── Решта функцій Mono та IO (без змін) ──
     async function fetchAccounts() {
         const secret = document.getElementById('cfg-secret').value.trim();
         if (!secret) { showToast('Введи секретний ключ'); return; }
@@ -389,7 +416,7 @@
             cfg.cachedAccounts = accounts;
             renderAccountList(accounts);
         } catch(e) {
-            list.innerHTML = '<div style="color:var(--danger);font-size:13px;padding:8px 0;">Помилка. Перевір секретний ключ.</div>';
+            list.innerHTML = '<div style="color:var(--danger);font-size:13px;padding:8px 0;">Помилка. Перевір ключ.</div>';
         }
     }
 
@@ -427,23 +454,83 @@
         else cfg.accounts.splice(idx, 1);
     }
 
-    function saveSettings() {
-        cfg.secret = document.getElementById('cfg-secret').value.trim();
-        localStorage.setItem('fop_cfg', JSON.stringify(cfg));
-        closeSettings();
-        showToast('✓ Налаштування збережено');
+    function resetCache() {
+        for (let i = 0; i < 3; i++) localStorage.removeItem(`mono_cache_${curY}_${curT}_${i}`);
+        showToast('🗑 Кеш кварталу скинуто');
     }
 
-    // ── Export / Import ──
+    async function fetchFromMono() {
+        if (!cfg.secret) { openSettings(); showToast('⚙️ Налаштуй підключення'); return; }
+        if (!cfg.accounts?.length) { openSettings(); showToast('⚙️ Вибери рахунки'); return; }
+
+        const btn = document.getElementById('mono-btn');
+        const btnText = document.getElementById('mono-btn-text');
+        btn.disabled = true;
+
+        const quarterMonths = Q_MONTHS[curT];
+        const toFetch = [];
+
+        for (let i = 0; i < 3; i++) {
+            const monthIdx = quarterMonths[i];
+            const cached = localStorage.getItem(`mono_cache_${curY}_${curT}_${i}`);
+            const now = new Date();
+            const isMonthClosed = (parseInt(curY) < now.getFullYear()) || (parseInt(curY) === now.getFullYear() && monthIdx < now.getMonth());
+            
+            if (cached !== null && isMonthClosed) {
+                db[`${curY}-${curT}-${i}`] = JSON.parse(cached);
+            } else {
+                toFetch.push(i);
+            }
+        }
+
+        if (toFetch.length === 0) {
+            localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+            updateUI();
+            showToast('✅ Дані з кешу');
+            btn.disabled = false;
+            return;
+        }
+
+        btnText.textContent = `⏳ ${toFetch.length} міс. з Mono...`;
+
+        try {
+            const accountsParam = encodeURIComponent(JSON.stringify(cfg.accounts));
+            const url = `${SERVER}/quarter-income?year=${curY}&quarter=${curT + 1}&months=${toFetch.join(',')}&accounts=${accountsParam}`;
+            const r = await fetch(url, { headers: { 'x-secret-key': cfg.secret } });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+
+            for (const i of toFetch) {
+                const val = data[i];
+                if (val !== undefined && val !== 'limit' && !isNaN(val)) {
+                    const rounded = parseFloat(val).toFixed(2);
+                    db[`${curY}-${curT}-${i}`] = rounded;
+                    const monthIdx = quarterMonths[i];
+                    const now = new Date();
+                    const isMonthClosed = (parseInt(curY) < now.getFullYear()) || (parseInt(curY) === now.getFullYear() && monthIdx < now.getMonth());
+                    if (isMonthClosed) localStorage.setItem(`mono_cache_${curY}_${curT}_${i}`, JSON.stringify(rounded));
+                }
+            }
+
+            localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
+            updateUI();
+            showToast('✅ Оновлено з Mono');
+        } catch(e) {
+            showToast('✗ ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = 'Завантажити з Mono';
+        }
+    }
+
     function exportData() {
         const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `fop_backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `fop_backup_${curY}_Q${curT+1}.json`;
         document.body.appendChild(a); a.click();
         document.body.removeChild(a); URL.revokeObjectURL(url);
-        showToast('✓ Дані збережено у JSON');
     }
 
     function importData(event) {
@@ -452,16 +539,13 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const parsed = JSON.parse(e.target.result);
-                if (typeof parsed !== 'object' || parsed === null) throw new Error();
-                db = parsed;
+                db = JSON.parse(e.target.result);
                 localStorage.setItem('fop_vFinal_v2', JSON.stringify(db));
                 updateUI();
-                showToast('✓ Дані імпортовано');
-            } catch(_) { showToast('✗ Невірний формат файлу'); }
+                showToast('✓ Імпортовано');
+            } catch(_) { showToast('✗ Помилка файлу'); }
         };
         reader.readAsText(file);
-        event.target.value = '';
     }
 
     function showToast(msg) {
@@ -473,6 +557,5 @@
 
     updateUI();
 </script>
-
 </body>
 </html>
