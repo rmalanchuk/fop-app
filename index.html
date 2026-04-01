@@ -458,24 +458,21 @@
         document.getElementById('pay-iban').innerText = iban;
 
         const qrBox = document.getElementById('qrcode');
-qrBox.innerHTML = '';
-const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount.toFixed(2)}|Currency=UAH|Purpose=${purpose}`;
-
-if (typeof QRCode !== 'undefined') {
-    // Оновлений виклик з підтримкою більшого обсягу даних
-    new QRCode(qrBox, { 
-        text: qrStr, 
-        width: 180, 
-        height: 180, 
-        // Змінюємо рівень корекції на L (Low), щоб влізло більше тексту
-        correctLevel: QRCode.CorrectLevel.L,
-        // Додаємо автоматичне визначення версії QR-коду
-        version: 0 
-    });
-} else {
-    qrBox.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;">QR недоступний</div>';
-}
-
+        qrBox.innerHTML = '';
+        const qrStr = `ST00012|Name=ДПС|IBAN=${iban}|Amount=${amount.toFixed(2)}|Currency=UAH|Purpose=${purpose}`;
+        
+        if (typeof QRCode !== 'undefined') {
+            // Використовуємо розширені налаштування для довгих рядків
+            new QRCode(qrBox, { 
+                text: qrStr, 
+                width: 180, 
+                height: 180, 
+                correctLevel: QRCode.CorrectLevel.L,
+                version: 10 // Збільшуємо версію (щільність) QR-коду
+            });
+        } else {
+            qrBox.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;">QR недоступний</div>';
+        }
         document.getElementById('pay-deeplink').href =
             `iban:${iban}?amount=${amount.toFixed(2)}&memo=${encodeURIComponent(purpose)}`;
 
