@@ -430,6 +430,7 @@
     function openPayment(type) {
     const isEP = type === 'ep';
     
+    // Рахуємо суми
     let qSums = [0,0,0,0];
     for(let q=0; q<=3; q++) for(let m=0; m<=2; m++) qSums[q] += parseFloat(db[`${curY}-${q}-${m}`]) || 0;
     let cumInc = 0; for(let i=0; i<=curT; i++) cumInc += qSums[i];
@@ -438,15 +439,16 @@
 
     if (!cfg.inn || (isEP ? !cfg.ibanEP : !cfg.ibanVZ)) {
         showToast('⚙️ Налаштуй ІПН та IBAN');
-        openSettings();
         return;
     }
 
     const iban = (isEP ? cfg.ibanEP : cfg.ibanVZ).replace(/\s/g, '');
-    const taxName = isEP ? 'Єдиний податок' : 'Військовий збір';
-    const purpose = `101;${cfg.inn};сплата ${taxName} за ${curT + 1}кв ${curY}р.;;;`;
+    const taxName = isEP ? 'єдиного податку' : 'військового збору';
+    
+    // НОВИЙ ФОРМАТ ПРИЗНАЧЕННЯ: 101 Сплата [назва] за [N]-й квартал [РІК] року
+    const purpose = `101 Сплата ${taxName} за ${curT + 1}-й квартал ${curY} року`;
 
-    document.getElementById('pay-title').innerText = taxName;
+    document.getElementById('pay-title').innerText = isEP ? 'Єдиний податок' : 'Військовий збір';
     document.getElementById('disp-amount').innerText = amount.toFixed(2);
     document.getElementById('disp-iban').innerText = iban;
     document.getElementById('disp-purpose').innerText = purpose;
