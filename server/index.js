@@ -89,7 +89,7 @@ if (TELEGRAM_TOKEN) {
                 amount,
                 odo,
                 liters,
-                priceattime: price
+                priceAtTime: price
             };
 
             // Якщо це не тест — зберігаємо в Supabase
