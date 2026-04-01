@@ -247,6 +247,39 @@
         color: var(--muted); 
         font-weight: 500;
     }
+    .quick-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 20px 16px 40px; /* 40px знизу для зручності в PWA */
+}
+
+.link-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column; /* Іконка над текстом для кращого вигляду */
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    transition: 0.2s;
+}
+
+.link-card:active {
+    transform: scale(0.95);
+    background: #f8f9fa;
+}
+
+.link-icon {
+    font-size: 20px;
+}
 </style>
 </head>
 <body>
@@ -324,6 +357,18 @@
         <span class="det-arrow" id="det-arrow">▾</span>
     </button>
     <div id="det-sec" class="details"></div>
+</div>
+
+<div class="quick-links">
+    <a href="https://taxer.ua/uk/my" target="_blank" class="link-card">
+        <span class="link-icon">⚡</span>
+        <span>Taxer</span>
+    </a>
+    
+    <a href="https://portal.pfu.gov.ua/" target="_blank" class="link-card">
+        <span class="link-icon">👤</span>
+        <span>Портал ПФУ</span>
+    </a>
 </div>
 
 <div class="io-wrap">
