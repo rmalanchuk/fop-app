@@ -4,6 +4,7 @@ const fetch = require('node-fetch');
 const { Telegraf } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(cors());
@@ -13,21 +14,38 @@ app.use(express.static(path.join(__dirname, '')));
 const MONO_TOKEN = process.env.MONO_TOKEN;
 const SECRET_KEY = process.env.SECRET_KEY;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CAR_DB_PATH = path.join(__dirname, 'car_db.json');
 
 // ── Робота з базою авто ──
-function getCarData() {
-    if (!fs.existsSync(CAR_DB_PATH)) return { fuel: [], service: [], lastOdo: 0, lastPrice: 87.99 };
-    try {
-        return JSON.parse(fs.readFileSync(CAR_DB_PATH));
-    } catch (e) {
-        return { fuel: [], service: [], lastOdo: 0, lastPrice: 87.99 };
+async function getCarData() {
+    const { data, error } = await supabase
+        .from('car_stats')
+        .select('*')
+        .order('date', { ascending: true });
+
+    if (error) {
+        console.error('Supabase fetch error:', error);
+        return { fuel: [], lastOdo: 0 };
     }
+
+    const lastOdo = data.length > 0 ? Math.max(...data.map(d => d.odo)) : 0;
+    const lastPrice = data.length > 0 ? data[data.length - 1].priceAtTime : 87.99;
+
+    return { fuel: data, lastOdo, lastPrice };
 }
 
-function saveCarData(data) {
-    fs.writeFileSync(CAR_DB_PATH, JSON.stringify(data, null, 2));
+async function saveCarData(entry) {
+    const { error } = await supabase
+        .from('car_stats')
+        .insert([entry]);
+
+    if (error) {
+        console.error('Supabase insert error:', error);
+    }
 }
 
 function auth(req, res) {
@@ -55,7 +73,9 @@ if (TELEGRAM_TOKEN) {
         if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
             const amount = parseFloat(parts[0]);
             const odo = parseInt(parts[1]);
-            const data = getCarData();
+            
+            // Отримуємо останні дані з Supabase, щоб знати останню ціну
+            const data = await getCarData();
             
             let price = (parts.length >= 3 && !isNaN(parts[2])) 
                 ? parseFloat(parts[2]) 
@@ -71,11 +91,9 @@ if (TELEGRAM_TOKEN) {
                 priceAtTime: price
             };
 
+            // Якщо це не тест — зберігаємо в Supabase
             if (!isTest) {
-                data.fuel.push(entry);
-                data.lastOdo = odo;
-                data.lastPrice = price;
-                saveCarData(data);
+                await saveCarData(entry); 
             }
 
             const prefix = isTest ? '🧪 **ТЕСТОВИЙ РЕЗУЛЬТАТ**' : '✅ **ЗАПИСАНО В БАЗУ**';
@@ -87,14 +105,16 @@ if (TELEGRAM_TOKEN) {
                 `💰 Сума: ${amount} грн\n` +
                 `🛣 Пробіг: ${odo} км\n` +
                 `⛽️ Літрів: ~${liters} л\n\n` +
-                `${isTest ? '_Дані не було збережено._' : '_Дані успішно збережено._'}`
+                `${isTest ? '_Дані не було збережено._' : '_Дані успішно збережено в Supabase._'}`
             );
         } else {
             ctx.reply('Формат: [Сума] [Пробіг] [Ціна (опційно)]\nПриклад: 2500 216000\nДля тесту: Тест 2500 216000');
         }
     });
 
-    bot.launch().then(() => console.log('Telegram Bot started')).catch(err => console.error('Bot launch error:', err));
+    bot.launch()
+        .then(() => console.log('Telegram Bot started with Supabase support'))
+        .catch(err => console.error('Bot launch error:', err));
 }
 
 // ── Допоміжні функції Mono/NBU ──
@@ -154,7 +174,8 @@ app.get('/accounts', async (req, res) => {
 app.get('/car-stats', async (req, res) => {
     if (!auth(req, res)) return;
     try {
-        res.json(getCarData());
+        const data = await getCarData(); // Додаємо await
+        res.json(data);
     } catch (e) { res.status(500).send(e.message); }
 });
 
