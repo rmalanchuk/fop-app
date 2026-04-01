@@ -33,20 +33,19 @@ async function getCarData() {
     }
 
     const lastOdo = data && data.length > 0 ? Math.max(...data.map(d => d.odo)) : 0;
-    // Зверни увагу: тут тепер price_at_time
-    const lastPrice = data && data.length > 0 ? data[data.length - 1].price_at_time : 87.99;
+    // Використовуємо назву поля точно як у базі — priceattime
+    const lastPrice = data && data.length > 0 ? data[data.length - 1].priceattime : 87.99;
 
     return { fuel: data || [], lastOdo, lastPrice };
 }
 
 async function saveCarData(entry) {
-    // Переконуємося, що об'єкт для бази має правильну назву ключа
     const dbEntry = {
         date: entry.date,
         amount: entry.amount,
         odo: entry.odo,
         liters: entry.liters,
-        price_at_time: entry.priceAtTime // Мапимо JS-стиль на SQL-стиль
+        priceattime: entry.priceAtTime // Мапимо JS-об'єкт на колонку priceattime
     };
 
     const { error } = await supabase
@@ -56,14 +55,6 @@ async function saveCarData(entry) {
     if (error) {
         console.error('Supabase insert error:', error);
     }
-}
-
-function auth(req, res) {
-    if (req.headers['x-secret-key'] !== SECRET_KEY) {
-        res.status(401).send('Unauthorized');
-        return false;
-    }
-    return true;
 }
 
 // ── Логіка Telegram Бота ──
