@@ -60,7 +60,24 @@ async function saveCarData(entry) {
 // ── Логіка Telegram Бота ──
 if (TELEGRAM_TOKEN) {
     const bot = new Telegraf(TELEGRAM_TOKEN);
-
+    bot.telegram.setMyCommands([
+        { command: 'price', description: 'Дізнатися останню ціну палива' }
+    ]);
+    bot.command('price', async (ctx) => {
+        try {
+            const data = await getCarData();
+            const lastPrice = data.lastPrice || 87.99;
+            
+            ctx.replyWithMarkdown(
+                `⛽️ **Остання ціна в базі:**\n` +
+                `${lastPrice} грн/л\n\n` +
+                `_Це значення буде використано за замовчуванням при новому записі._`
+            );
+        } catch (e) {
+            console.error('Error in /price command:', e);
+            ctx.reply('Не вдалося отримати ціну з бази.');
+        }
+    });
     bot.on('text', async (ctx) => {
         let text = ctx.message.text.trim();
         const isTest = text.toLowerCase().startsWith('тест');
