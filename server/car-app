@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMW X1 Stats</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .stat-item { text-align: center; padding: 15px; background: #eef2f3; border-radius: 8px; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #007aff; }
+        .stat-label { font-size: 12px; color: #666; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { font-size: 14px; color: #999; }
+        .price-tag { font-size: 10px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚗 BMW X1 (E84)</h1>
+        
+        <div class="card stats-grid">
+            <div class="stat-item">
+                <div id="total-spent" class="stat-value">0</div>
+                <div class="stat-label">Всього витрачено (грн)</div>
+            </div>
+            <div class="stat-item">
+                <div id="last-odo" class="stat-value">0</div>
+                <div class="stat-label">Останній пробіг (км)</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Історія заправок</h3>
+            <table id="fuel-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Сума/Ціна</th>
+                        <th>Літри</th>
+                        <th>Пробіг</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'ПЕРЕПИШИ_НА_ТВІЙ_URL_RENDER'; // Наприклад: https://fop-proxy.onrender.com
+        const SECRET_KEY = 'ТВІЙ_SECRET_KEY';
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_URL}/car-stats`, {
+                    headers: { 'x-secret-key': SECRET_KEY }
+                });
+                const data = await response.json();
+                
+                // Рахуємо загальну суму
+                const total = data.fuel.reduce((acc, curr) => acc + curr.amount, 0);
+                document.getElementById('total-spent').innerText = total.toLocaleString();
+                document.getElementById('last-odo').innerText = data.lastOdo.toLocaleString();
+
+                // Заповнюємо таблицю (останні заправки зверху)
+                const tbody = document.querySelector('#fuel-table tbody');
+                tbody.innerHTML = data.fuel.reverse().map(f => `
+                    <tr>
+                        <td>${new Date(f.date).toLocaleDateString()}</td>
+                        <td>${f.amount} ₴ <br><span class="price-tag">${f.priceAtTime} грн/л</span></td>
+                        <td>${f.liters} л</td>
+                        <td>${f.odo} км</td>
+                    </tr>
+                `).join('');
+                
+            } catch (e) {
+                console.error("Помилка завантаження:", e);
+            }
+        }
+
+        loadStats();
+    </script>
+</body>
+</html>
