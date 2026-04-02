@@ -714,3 +714,75 @@ app.get('/api/dashboard', async (req, res) => {
 app.get('/car', (req, res) => {
     res.sendFile(path.join(__dirname, 'car.html'));
 });
+
+// --- АВТОМАТИЗАЦІЯ ЗВІТІВ (CRON) ---
+const cron = require('node-cron');
+const GROUP_CHAT_ID = process.env.GROUP_CHAT_ID;
+
+if (finBot && GROUP_CHAT_ID) {
+    
+    // Функція генерації тижневого звіту (винесена окремо для зручності)
+    const sendWeeklyReport = async (targetId) => {
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+            .from('family_finances')
+            .select('category, amount')
+            .eq('type', 'Витрати')
+            .eq('currency', 'UAH')
+            .gte('created_at', oneWeekAgo);
+
+        if (error || !data || data.length === 0) {
+            return finBot.telegram.sendMessage(targetId, "📊 *Тижневий звіт:* Витрат за останні 7 днів не знайдено.", { parse_mode: 'Markdown' });
+        }
+
+        const summary = data.reduce((acc, curr) => {
+            acc[curr.category] = (acc[curr.category] || 0) + Math.abs(curr.amount);
+            return acc;
+        }, {});
+
+        let message = "📊 *Звіт за тиждень (Витрати UAH):*\n\n";
+        Object.entries(summary).sort((a, b) => b[1] - a[1]).forEach(([cat, val]) => {
+            message += `• ${cat}: ${val.toLocaleString('uk-UA')} ₴\n`;
+        });
+        
+        const total = Object.values(summary).reduce((a, b) => a + b, 0);
+        message += `\n💰 *Разом:* ${total.toLocaleString('uk-UA')} ₴`;
+
+        return finBot.telegram.sendMessage(targetId, message, { parse_mode: 'Markdown' });
+    };
+
+    // 1. Кожну неділю о 22:00
+    cron.schedule('0 22 * * 0', () => sendWeeklyReport(GROUP_CHAT_ID));
+
+    // 2. Останній день місяця о 23:00
+    cron.schedule('0 23 28-31 * *', async () => {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        if (tomorrow.getMonth() === today.getMonth()) return;
+
+        try {
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+            const { data: records } = await supabase.from('family_finances').select('*').gte('created_at', startOfMonth);
+
+            const exp = records.filter(r => r.type === 'Витрати' && r.currency === 'UAH').reduce((s, r) => s + Math.abs(r.amount), 0);
+            const inc = records.filter(r => r.type === 'Доходи' && r.currency === 'UAH').reduce((s, r) => s + Math.abs(r.amount), 0);
+            const sav = { UAH: 0, USD: 0, EUR: 0 };
+            records.filter(r => r.type === 'Заощадження').forEach(r => { sav[r.currency] += r.amount; });
+
+            let msg = `🏁 *ПІДСУМОК МІСЯЦЯ*\n\n`;
+            msg += `📉 Витрати: ${exp.toLocaleString('uk-UA')} ₴\n`;
+            msg += `📈 Доходи: ${inc.toLocaleString('uk-UA')} ₴\n`;
+            msg += `⚖️ Баланс: ${(inc - exp).toLocaleString('uk-UA')} ₴\n\n`;
+            msg += `🏦 *Додано в сейф:* \n• UAH: ${sav.UAH} ₴\n• USD: ${sav.USD} $\n• EUR: ${sav.EUR} €`;
+
+            await finBot.telegram.sendMessage(GROUP_CHAT_ID, msg, { parse_mode: 'Markdown' });
+        } catch (e) { console.error(e); }
+    });
+
+    // 3. Тестова команда (тільки для тебе)
+    finBot.command('test_report', async (ctx) => {
+        await ctx.reply("🚀 Надсилаю тестовий звіт у групу...");
+        await sendWeeklyReport(GROUP_CHAT_ID);
+    });
+}
