@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const { Telegraf } = require('telegraf');
+const { Telegraf, Scenes, session } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
@@ -17,6 +17,18 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const { Telegraf, Scenes, session } = require('telegraf'); // Оновив деструктуризацію
+
+// Нові токени та ID
+const FINANCE_TOKEN = process.env.TELEGRAM_FINANCE_TOKEN;
+const ALLOWED_USERS = process.env.ALLOWED_USERS ? process.env.ALLOWED_USERS.split(',').map(id => parseInt(id)) : [];
+
+// Константи категорій згідно з твоєю логікою
+const CATEGORIES = {
+    EXPENSES: ['Продукти', 'Медицина', 'Розваги', 'Одяг', 'Машина', 'Квартира', 'Податки', 'Кредити', 'Інше'],
+    INCOME: ['Школа', 'Хелен Дорон', 'Лангейт', 'Інше'],
+    SAVINGS: ['Гривні', 'Долари', 'Євро']
+};
 
 const CAR_DB_PATH = path.join(__dirname, 'car_db.json');
 
@@ -273,6 +285,122 @@ if (TELEGRAM_TOKEN) {
     bot.launch()
         .then(() => console.log('Telegram Bot started with Supabase and Keyboard support'))
         .catch(err => console.error('Bot launch error:', err));
+}
+
+if (FINANCE_TOKEN) {
+    const finBot = new Telegraf(FINANCE_TOKEN);
+
+    // --- 1. Middleware Безпеки ---
+    finBot.use((ctx, next) => {
+        if (ctx.from && ALLOWED_USERS.includes(ctx.from.id)) return next();
+        console.log(`Unauthorized access: ${ctx.from?.id}`);
+    });
+
+    finBot.use(session());
+
+    // --- 2. Сцени для покрокового вводу ---
+    const financeScene = new Scenes.WizardScene(
+        'ADD_TRANSACTION_SCENE',
+        // Крок 1: Вибір категорії (вже зроблено кнопкою, тут просто чекаємо суму)
+        async (ctx) => {
+            const category = ctx.message.text;
+            ctx.scene.session.state.category = category;
+            
+            // Визначаємо тип на основі категорії
+            if (CATEGORIES.INCOME.includes(category)) ctx.scene.session.state.type = 'Доходи';
+            else if (CATEGORIES.SAVINGS.includes(category)) ctx.scene.session.state.type = 'Заощадження';
+            else ctx.scene.session.state.type = 'Витрати';
+
+            await ctx.reply(`Обрано категорію: ${category}. Введіть суму:`, {
+                reply_markup: { keyboard: [[{ text: '⬅️ Назад' }]], resize_keyboard: true }
+            });
+            return ctx.wizard.next();
+        },
+        // Крок 2: Отримання суми та запис
+        async (ctx) => {
+            if (ctx.message.text === '⬅️ Назад') {
+                await ctx.scene.leave();
+                return showMainMenu(ctx);
+            }
+
+            const amount = parseFloat(ctx.message.text.replace(',', '.'));
+            if (isNaN(amount)) return ctx.reply('Будь ласка, введіть числове значення суми:');
+
+            const { category, type } = ctx.scene.session.state;
+
+            try {
+                await supabase.from('family_finances').insert([{
+                    user_id: ctx.from.id,
+                    type: type,
+                    category: category,
+                    amount: amount,
+                    currency: 'UAH' // Дефолт для звичайних витрат
+                }]);
+                await ctx.reply(`✅ Записано: ${type} -> ${category}: ${amount} грн`);
+            } catch (e) {
+                ctx.reply('❌ Помилка запису в базу.');
+            }
+            return ctx.scene.leave();
+        }
+    );
+
+    const stage = new Scenes.Stage([financeScene]);
+    finBot.use(stage.middleware());
+
+    // --- 3. Головне Меню ---
+    const showMainMenu = (ctx) => {
+        return ctx.reply('Оберіть дію:', {
+            reply_markup: {
+                keyboard: [
+                    ['💸 Витрати', '💰 Доходи'],
+                    ['🏦 Заощадження', '📉 Витрата з заощаджень'],
+                    ['🔙 Скасувати останній запис', '❓ Довідка']
+                ],
+                resize_keyboard: true
+            }
+        });
+    };
+
+    finBot.start((ctx) => showMainMenu(ctx));
+
+    // Обробка кнопок категорій
+    finBot.hears('💸 Витрати', (ctx) => {
+        const buttons = CATEGORIES.EXPENSES.map(c => [{ text: c }]);
+        buttons.push([{ text: '⬅️ Назад' }]);
+        ctx.reply('Оберіть категорію витрат:', { reply_markup: { keyboard: buttons, resize_keyboard: true } });
+    });
+
+    finBot.hears('💰 Доходи', (ctx) => {
+        const buttons = CATEGORIES.INCOME.map(c => [{ text: c }]);
+        buttons.push([{ text: '⬅️ Назад' }]);
+        ctx.reply('Оберіть джерело доходу:', { reply_markup: { keyboard: buttons, resize_keyboard: true } });
+    });
+
+    finBot.hears('⬅️ Назад', (ctx) => showMainMenu(ctx));
+
+    // Запуск сцени при виборі конкретної категорії
+    const allCats = [...CATEGORIES.EXPENSES, ...CATEGORIES.INCOME, ...CATEGORIES.SAVINGS];
+    finBot.hears(allCats, (ctx) => ctx.scene.enter('ADD_TRANSACTION_SCENE'));
+
+    // --- 4. Швидкий текстовий ввід (Пункт 3-А) ---
+    finBot.on('text', async (ctx, next) => {
+        const text = ctx.message.text.trim();
+        const match = text.match(/^([А-Яа-яіІєЄґҐa-zA-Z]+)\s+(\d+(?:[.,]\d+)?)$/u);
+        if (!match) return next();
+
+        let [_, catInput, amountStr] = match;
+        const amount = parseFloat(amountStr.replace(',', '.'));
+        const category = CATEGORIES.EXPENSES.find(c => c.toLowerCase() === catInput.toLowerCase());
+
+        if (!category) return ctx.reply(`⚠️ Категорія "${catInput}" не знайдена.`);
+
+        await supabase.from('family_finances').insert([{
+            user_id: ctx.from.id, type: 'Витрати', category, amount, currency: 'UAH'
+        }]);
+        ctx.reply(`✅ Швидкий запис: ${category} ${amount} грн`);
+    });
+
+    finBot.launch().then(() => console.log('Finance Bot started'));
 }
 
 // ── Допоміжні функції Mono/NBU ──
