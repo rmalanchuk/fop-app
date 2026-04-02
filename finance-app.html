@@ -15,7 +15,6 @@
         details summary::-webkit-details-marker { display: none; }
         .animate-fade { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        /* Фіксація висоти контейнера графіка */
         .chart-container { position: relative; height: 200px; width: 100%; }
     </style>
 </head>
@@ -36,7 +35,6 @@
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Активність за місяць (UAH)</p>
             <p id="month-name" class="text-[10px] font-bold text-blue-500 uppercase"></p>
         </div>
-        
         <div class="grid grid-cols-2 gap-3 mb-10">
             <div class="card p-4 border-b-4 border-red-100">
                 <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">Витрачено</p>
@@ -47,7 +45,6 @@
                 <p id="stat-income" class="text-lg font-bold text-green-600">0 ₴</p>
             </div>
         </div>
-
         <div class="flex items-center justify-between mb-5 px-1">
             <h2 class="text-lg font-bold text-slate-800">Операції</h2>
             <button id="btn-show-all" onclick="toggleExpand()" class="text-xs text-blue-600 font-bold hover:bg-blue-100 bg-blue-50 px-3 py-1.5 rounded-lg">Показати всі ➔</button>
@@ -58,19 +55,16 @@
     <div id="content-archive" class="hidden animate-fade">
         <div class="flex items-center justify-between mb-6 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
             <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400">◀</button>
-            <span id="current-month-display" class="font-bold text-slate-700 uppercase text-[11px] tracking-widest">Квітень 2026</span>
+            <span id="current-month-display" class="font-bold text-slate-700 uppercase text-[11px] tracking-widest"></span>
             <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400">▶</button>
         </div>
-
         <div class="card p-6 mb-6">
             <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest flex items-center">
-                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Витрати по тижнях (UAH)
+                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Витрати: останні 5 тижнів
             </h3>
-            <div class="chart-container">
-                <canvas id="weeklyChart"></canvas>
-            </div>
+            <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
+            <p class="text-[9px] text-slate-300 mt-4 text-center italic">* Останній тиждень триває до сьогодні</p>
         </div>
-
         <div class="space-y-4">
             <details class="card group"><summary id="summary-exp" class="p-5 flex justify-between items-center cursor-pointer list-none"></summary><div id="details-exp" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div></details>
             <details class="card group"><summary id="summary-inc" class="p-5 flex justify-between items-center cursor-pointer list-none"></summary><div id="details-inc" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div></details>
@@ -79,8 +73,7 @@
     </div>
 
     <script>
-        let allData = [], safeData = { UAH: 0, USD: 0, EUR: 0 }, isExpanded = false;
-        let currentMonthOffset = 0, myChart = null;
+        let allData = [], safeData = { UAH: 0, USD: 0, EUR: 0 }, isExpanded = false, currentMonthOffset = 0, myChart = null;
 
         function getSecretKey() {
             let key = localStorage.getItem('finance_key');
@@ -92,9 +85,7 @@
             document.getElementById('content-dashboard').classList.toggle('hidden', tab !== 'dashboard');
             document.getElementById('content-archive').classList.toggle('hidden', tab !== 'archive');
             document.getElementById('tab-dashboard').classList.toggle('active', tab === 'dashboard');
-            document.getElementById('tab-dashboard').classList.toggle('text-slate-400', tab !== 'dashboard');
             document.getElementById('tab-archive').classList.toggle('active', tab === 'archive');
-            document.getElementById('tab-archive').classList.toggle('text-slate-400', tab !== 'archive');
             if (tab === 'archive') renderArchive();
         }
 
@@ -110,10 +101,7 @@
             } catch (e) { localStorage.removeItem('finance_key'); }
         }
 
-        function toggleExpand() { 
-            isExpanded = !isExpanded; 
-            renderDashboard(); 
-        }
+        function toggleExpand() { isExpanded = !isExpanded; renderDashboard(); }
 
         function renderDashboard() {
             const now = new Date();
@@ -121,47 +109,20 @@
                 const d = new Date(t.created_at);
                 return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.currency === 'UAH';
             });
-
-            const mExp = currentMonthData.filter(t => t.type === 'Витрати').reduce((sum, t) => sum + Math.abs(t.amount), 0);
-            const mInc = currentMonthData.filter(t => t.type === 'Доходи').reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
-            document.getElementById('stat-expenses').innerText = mExp.toLocaleString() + ' ₴';
-            document.getElementById('stat-income').innerText = mInc.toLocaleString() + ' ₴';
+            document.getElementById('stat-expenses').innerText = currentMonthData.filter(t => t.type === 'Витрати').reduce((s, t) => s + Math.abs(t.amount), 0).toLocaleString() + ' ₴';
+            document.getElementById('stat-income').innerText = currentMonthData.filter(t => t.type === 'Доходи').reduce((s, t) => s + Math.abs(t.amount), 0).toLocaleString() + ' ₴';
 
             const displayData = isExpanded ? allData : allData.slice(0, 5);
-            const btn = document.getElementById('btn-show-all');
-            btn.innerText = isExpanded ? "Згорнути ▲" : "Показати всі ➔";
-            btn.style.display = allData.length > 5 ? 'block' : 'none';
-
+            document.getElementById('btn-show-all').innerText = isExpanded ? "Згорнути ▲" : "Показати всі ➔";
             document.getElementById('journal').innerHTML = displayData.map(t => {
                 const isInc = t.type === 'Доходи', isSav = t.type === 'Заощадження';
-                const sign = (isInc || (isSav && t.amount > 0)) ? '+' : '-';
-                let icon = isInc ? '💰' : (isSav ? '🏦' : '🛒');
-                let color = isInc ? 'text-green-600' : (isSav ? 'text-blue-600' : 'text-red-600');
-                let bg = isInc ? 'bg-green-50' : (isSav ? 'bg-blue-50' : 'bg-red-50');
-
-                return `
-                    <div class="card p-4 flex justify-between items-center mb-3">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 rounded-xl ${bg} flex items-center justify-center mr-4">${icon}</div>
-                            <div>
-                                <p class="font-bold text-sm text-slate-800">${t.category}</p>
-                                <p class="text-[10px] text-slate-400">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            ${t.is_from_savings ? `
-                                <div class="flex items-center mr-3 opacity-80">
-                                    <div class="flex flex-col items-center">
-                                        <span class="text-xs">🏦</span>
-                                        <span class="text-[7px] font-black text-blue-500 uppercase leading-none">Капітал</span>
-                                    </div>
-                                </div>` : ''}
-                            <div class="text-right min-w-[75px]">
-                                <p class="font-bold ${color} text-sm">${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}</p>
-                            </div>
-                        </div>
-                    </div>`;
+                return `<div class="card p-4 flex justify-between items-center mb-3">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-xl ${isInc?'bg-green-50':isSav?'bg-blue-50':'bg-red-50'} flex items-center justify-center mr-4">${isInc?'💰':isSav?'🏦':'🛒'}</div>
+                        <div><p class="font-bold text-sm text-slate-800">${t.category}</p><p class="text-[10px] text-slate-400">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p></div>
+                    </div>
+                    <div class="text-right min-w-[75px]"><p class="font-bold ${isInc?'text-green-600':isSav?'text-blue-600':'text-red-600'} text-sm">${(isInc||(isSav&&t.amount>0))?'+':'-'}${Math.abs(t.amount).toLocaleString()} ${t.currency}</p></div>
+                </div>`;
             }).join('');
         }
 
@@ -169,84 +130,49 @@
 
         function renderArchive() {
             const targetDate = new Date(); targetDate.setMonth(targetDate.getMonth() + currentMonthOffset);
-            const monthStr = targetDate.toLocaleString('uk-UA', { month: 'long', year: 'numeric' });
-            document.getElementById('current-month-display').innerText = monthStr;
-
+            document.getElementById('current-month-display').innerText = targetDate.toLocaleString('uk-UA', { month: 'long', year: 'numeric' });
             const filtered = allData.filter(t => {
                 const d = new Date(t.created_at);
                 return d.getMonth() === targetDate.getMonth() && d.getFullYear() === targetDate.getFullYear();
             });
 
-            const stats = { Витрати: {}, Доходи: {}, Заощадження: {} };
-            let totalExp = 0, totalInc = 0, totalSav = 0;
-
+            const stats = { exp: {}, inc: {}, sav: { UAH: 0, USD: 0, EUR: 0 } };
             filtered.forEach(t => {
-                if (t.type === 'Витрати' && t.currency === 'UAH') { totalExp += Math.abs(t.amount); stats.Витрати[t.category] = (stats.Витрати[t.category] || 0) + Math.abs(t.amount); }
-                if (t.type === 'Доходи' && t.currency === 'UAH') { totalInc += Math.abs(t.amount); stats.Доходи[t.category] = (stats.Доходи[t.category] || 0) + Math.abs(t.amount); }
-                if (t.type === 'Заощадження' && t.currency === 'UAH') { totalSav += Math.abs(t.amount); stats.Заощадження[t.category] = (stats.Заощадження[t.category] || 0) + Math.abs(t.amount); }
+                if (t.type === 'Витрати' && t.currency === 'UAH') stats.exp[t.category] = (stats.exp[t.category] || 0) + Math.abs(t.amount);
+                if (t.type === 'Доходи' && t.currency === 'UAH') stats.inc[t.category] = (stats.inc[t.category] || 0) + Math.abs(t.amount);
+                if (t.type === 'Заощадження') stats.sav[t.currency] = (stats.sav[t.currency] || 0) + Math.abs(t.amount);
             });
 
-            updateSummary('exp', '💸', 'Витрати', totalExp, stats.Витрати, 'text-red-600');
-            updateSummary('inc', '💰', 'Доходи', totalInc, stats.Доходи, 'text-green-600');
-            updateSummary('sav', '🏦', 'Капітал', totalSav, stats.Заощадження, 'text-blue-600');
-
-            renderChart(filtered);
+            updateSummary('exp', '💸', 'Витрати', Object.values(stats.exp).reduce((a,b)=>a+b,0).toLocaleString()+' ₴', stats.exp, 'text-red-600');
+            updateSummary('inc', '💰', 'Доходи', Object.values(stats.inc).reduce((a,b)=>a+b,0).toLocaleString()+' ₴', stats.inc, 'text-green-600');
+            document.getElementById(`summary-sav`).innerHTML = `<div class="flex items-center"><div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center mr-4">🏦</div><span class="font-bold text-sm text-slate-700">Капітал</span></div><span class="text-slate-300 text-xs">детальніше ➔</span>`;
+            document.getElementById(`details-sav`).innerHTML = `<div class="flex justify-between"><span>🇺🇦 Гривня</span><span class="font-bold text-blue-600">${stats.sav.UAH.toLocaleString()} ₴</span></div><div class="flex justify-between"><span>🇺🇸 Долар</span><span class="font-bold text-blue-600">${stats.sav.USD.toLocaleString()} $</span></div><div class="flex justify-between"><span>🇪🇺 Євро</span><span class="font-bold text-blue-600">${stats.sav.EUR.toLocaleString()} €</span></div>`;
+            renderChart(allData);
         }
 
-        function updateSummary(id, icon, label, total, categories, colorClass) {
-            document.getElementById(`summary-${id}`).innerHTML = `<div class="flex items-center"><div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center mr-4">${icon}</div><span class="font-bold text-sm text-slate-700">${label}</span></div><span class="font-bold ${colorClass}">${total.toLocaleString()} ₴</span>`;
+        function updateSummary(id, icon, label, totalStr, categories, colorClass) {
+            document.getElementById(`summary-${id}`).innerHTML = `<div class="flex items-center"><div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center mr-4">${icon}</div><span class="font-bold text-sm text-slate-700">${label}</span></div><span class="font-bold ${colorClass}">${totalStr}</span>`;
             document.getElementById(`details-${id}`).innerHTML = Object.entries(categories).map(([cat, val]) => `<div class="flex justify-between"><span>${cat}</span><span class="font-semibold text-slate-700">${val.toLocaleString()} ₴</span></div>`).join('') || 'Немає даних';
         }
 
         function renderChart(data) {
-            const canvas = document.getElementById('weeklyChart');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            
-            const weekly = { 'Тиждень 1': 0, 'Тиждень 2': 0, 'Тиждень 3': 0, 'Тиждень 4': 0, 'Тиждень 5': 0 };
-            
+            const ctx = document.getElementById('weeklyChart').getContext('2d'), weeks = [], now = new Date();
+            for (let i = 4; i >= 0; i--) {
+                const end = new Date(now); end.setDate(now.getDate() - (i * 7));
+                const start = new Date(end); start.setDate(end.getDate() - 6);
+                weeks.push({ start, end, amount: 0, label: i === 0 ? 'Поточний' : `${i} тижд. тому` });
+            }
             data.filter(t => t.type === 'Витрати' && t.currency === 'UAH').forEach(t => {
-                const day = new Date(t.created_at).getDate();
-                let weekKey = 'Тиждень 1';
-                if (day > 7) weekKey = 'Тиждень 2';
-                if (day > 14) weekKey = 'Тиждень 3';
-                if (day > 21) weekKey = 'Тиждень 4';
-                if (day > 28) weekKey = 'Тиждень 5';
-                weekly[weekKey] += Math.abs(t.amount);
+                const d = new Date(t.created_at);
+                weeks.forEach(w => { if (d >= w.start && d <= w.end) w.amount += Math.abs(t.amount); });
             });
-
             if (myChart) myChart.destroy();
             myChart = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: Object.keys(weekly),
-                    datasets: [{
-                        data: Object.values(weekly),
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 8,
-                        hoverBackgroundColor: '#2563eb'
-                    }]
-                },
-                options: { 
-                    responsive: true,
-                    maintainAspectRatio: false, // ВАЖЛИВО: дозволяє контейнеру керувати висотою
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            displayColors: false,
-                            callbacks: {
-                                label: (context) => `Сума: ${context.raw.toLocaleString()} ₴`
-                            }
-                        }
-                    }, 
-                    scales: { 
-                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
-                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
-                    } 
-                }
+                data: { labels: weeks.map(w => w.label), datasets: [{ data: weeks.map(w => w.amount), backgroundColor: (c) => c.index === 4 ? '#93c5fd' : '#3b82f6', borderRadius: 8 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
             });
         }
-
         window.onload = fetchData;
     </script>
 </body>
