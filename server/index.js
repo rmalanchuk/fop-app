@@ -17,7 +17,6 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const { Telegraf, Scenes, session } = require('telegraf'); // Оновив деструктуризацію
 
 // Нові токени та ID
 const FINANCE_TOKEN = process.env.TELEGRAM_FINANCE_TOKEN;
