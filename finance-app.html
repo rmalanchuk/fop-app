@@ -53,11 +53,6 @@
     </div>
 
     <div id="content-archive" class="hidden animate-fade">
-        <div class="flex items-center justify-between mb-6 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
-            <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400">◀</button>
-            <span id="current-month-display" class="font-bold text-slate-700 uppercase text-[11px] tracking-widest"></span>
-            <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400">▶</button>
-        </div>
         <div class="card p-6 mb-6">
             <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest flex items-center">
                 <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Витрати: останні 5 тижнів
@@ -65,6 +60,13 @@
             <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
             <p class="text-[9px] text-slate-300 mt-4 text-center italic">* Останній тиждень триває до сьогодні</p>
         </div>
+
+        <div class="flex items-center justify-between mb-6 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+            <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400">◀</button>
+            <span id="current-month-display" class="font-bold text-slate-700 uppercase text-[11px] tracking-widest"></span>
+            <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400">▶</button>
+        </div>
+
         <div class="space-y-4">
             <details class="card group"><summary id="summary-exp" class="p-5 flex justify-between items-center cursor-pointer list-none"></summary><div id="details-exp" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div></details>
             <details class="card group"><summary id="summary-inc" class="p-5 flex justify-between items-center cursor-pointer list-none"></summary><div id="details-inc" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div></details>
