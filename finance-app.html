@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Finance Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #f1f5f9; color: #1e293b; font-family: 'Inter', sans-serif; }
+        .card { background: #ffffff; border-radius: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
+        .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; font-weight: 700; }
+        details summary::-webkit-details-marker { display: none; }
+        .safe-card { transition: transform 0.2s; }
+        .safe-card:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="p-4 pb-20 max-w-lg mx-auto">
+
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Family Finance</h1>
+            <p class="text-xs text-slate-500">Керування капіталом</p>
+        </div>
+        <div id="status" class="text-[10px] font-bold bg-green-100 text-green-600 px-3 py-1 rounded-full uppercase tracking-wider">Live</div>
+    </div>
+
+    <div class="flex border-b border-slate-200 mb-6 sticky top-0 bg-[#f1f5f9]/80 backdrop-blur-md z-10">
+        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-4 text-sm tab-active">Dashboard</button>
+        <button onclick="switchTab('archive')" id="tab-archive" class="flex-1 py-4 text-sm text-slate-400">Аналітика</button>
+    </div>
+
+    <div id="content-dashboard">
+        <div class="grid grid-cols-3 gap-3 mb-8">
+            <div class="card safe-card p-4 text-center">
+                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">UAH</p>
+                <p id="safe-uah" class="text-md font-bold text-slate-800">0</p>
+            </div>
+            <div class="card safe-card p-4 text-center">
+                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">USD</p>
+                <p id="safe-usd" class="text-md font-bold text-slate-800">0</p>
+            </div>
+            <div class="card safe-card p-4 text-center">
+                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">EUR</p>
+                <p id="safe-eur" class="text-md font-bold text-slate-800">0</p>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-slate-800">Останні операції</h2>
+            <span class="text-xs text-blue-500 font-semibold">Всі</span>
+        </div>
+        <div id="journal" class="space-y-3 text-slate-700">
+            <div class="text-center py-10 text-slate-400">Завантаження даних...</div>
+        </div>
+    </div>
+
+    <div id="content-archive" class="hidden">
+        <div class="flex items-center justify-between mb-6 bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+            <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-full text-blue-500 font-bold">◀</button>
+            <span id="current-month-display" class="font-bold text-slate-700 uppercase tracking-tight">Квітень 2026</span>
+            <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-full text-blue-500 font-bold">▶</button>
+        </div>
+
+        <div class="card p-5 mb-6">
+            <h3 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Витрати по тижнях (UAH)</h3>
+            <canvas id="weeklyChart" height="180"></canvas>
+        </div>
+
+        <div class="space-y-3" id="monthly-stats">
+            <details class="card transition-all duration-300">
+                <summary class="p-5 flex justify-between items-center cursor-pointer list-none">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-red-50 rounded-full flex items-center justify-center mr-3 text-red-500 text-sm">💸</div>
+                        <span class="font-bold text-slate-700">Витрати</span>
+                    </div>
+                    <span id="total-exp" class="font-bold text-slate-900">0 UAH</span>
+                </summary>
+                <div id="details-exp" class="px-5 pb-5 pt-2 text-sm text-slate-600 space-y-3 border-t border-slate-50 mt-2"></div>
+            </details>
+
+            <details class="card">
+                <summary class="p-5 flex justify-between items-center cursor-pointer list-none">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-green-50 rounded-full flex items-center justify-center mr-3 text-green-500 text-sm">💰</div>
+                        <span class="font-bold text-slate-700">Доходи</span>
+                    </div>
+                    <span id="total-inc" class="font-bold text-slate-900">0 UAH</span>
+                </summary>
+                <div id="details-inc" class="px-5 pb-5 pt-2 text-sm text-slate-600 space-y-3 border-t border-slate-50 mt-2"></div>
+            </details>
+
+            <details class="card">
+                <summary class="p-5 flex justify-between items-center cursor-pointer list-none">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center mr-3 text-blue-500 text-sm">🏦</div>
+                        <span class="font-bold text-slate-700">Заощадження</span>
+                    </div>
+                    <span class="text-xs font-bold text-blue-400 uppercase">Показати</span>
+                </summary>
+                <div id="details-sav" class="px-5 pb-5 pt-2 text-sm text-slate-600 space-y-3 border-t border-slate-50 mt-2"></div>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const SECRET_KEY = urlParams.get('key');
+        let allData = [];
+        let currentViewDate = new Date();
+
+        function switchTab(tab) {
+            document.getElementById('content-dashboard').classList.toggle('hidden', tab !== 'dashboard');
+            document.getElementById('content-archive').classList.toggle('hidden', tab !== 'archive');
+            document.getElementById('tab-dashboard').className = `flex-1 py-4 text-sm ${tab === 'dashboard' ? 'tab-active' : 'text-slate-400'}`;
+            document.getElementById('tab-archive').className = `flex-1 py-4 text-sm ${tab === 'archive' ? 'tab-active' : 'text-slate-400'}`;
+            if (tab === 'archive') renderArchive();
+        }
+
+        async function fetchData() {
+            if (!SECRET_KEY) {
+                document.body.innerHTML = "<div class='text-center py-20 text-slate-400'>❌ Потрібен секретний ключ доступу</div>";
+                return;
+            }
+            try {
+                const res = await fetch(`/api/dashboard?key=${SECRET_KEY}`);
+                const data = await res.json();
+                allData = data.history || [];
+                renderDashboard(data);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderDashboard(data) {
+            document.getElementById('safe-uah').innerText = data.safe.UAH.toLocaleString() + ' ₴';
+            document.getElementById('safe-usd').innerText = data.safe.USD.toLocaleString() + ' $';
+            document.getElementById('safe-eur').innerText = data.safe.EUR.toLocaleString() + ' €';
+
+            const journal = document.getElementById('journal');
+            journal.innerHTML = (data.history || []).map(t => {
+                const isInc = t.type === 'Доходи' || t.type === 'Заощадження';
+                const sign = isInc ? '+' : '-';
+                const color = t.type === 'Доходи' ? 'text-green-600' : (t.is_from_savings ? 'text-blue-500' : 'text-slate-900');
+                return `
+                    <div class="card p-4 flex justify-between items-center">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-xl mr-4 shadow-sm border border-slate-100">
+                                ${t.type === 'Доходи' ? '💰' : (t.type === 'Заощадження' ? '🏦' : '🛒')}
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800 leading-none mb-1">${t.category}</p>
+                                <p class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-extrabold ${color}">${sign}${t.amount} ${t.currency}</p>
+                            ${t.is_from_savings ? '<p class="text-[8px] font-bold text-blue-400 uppercase">З капіталу</p>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        let myChart;
+        function renderArchive() {
+            const year = currentViewDate.getFullYear();
+            const month = currentViewDate.getMonth();
+            document.getElementById('current-month-display').innerText = new Intl.DateTimeFormat('uk-UA', { month: 'long', year: 'numeric' }).format(currentViewDate);
+
+            const filtered = allData.filter(t => {
+                const d = new Date(t.created_at);
+                return d.getFullYear() === year && d.getMonth() === month;
+            });
+
+            const stats = { exp: {}, inc: {}, sav: {}, totalExp: 0, totalInc: 0 };
+            filtered.forEach(t => {
+                if (t.type === 'Витрати' && t.currency === 'UAH') {
+                    stats.totalExp += t.amount;
+                    stats.exp[t.category] = (stats.exp[t.category] || 0) + t.amount;
+                }
+                if (t.type === 'Доходи' && t.currency === 'UAH') {
+                    stats.totalInc += t.amount;
+                    stats.inc[t.category] = (stats.inc[t.category] || 0) + t.amount;
+                }
+                if (t.type === 'Заощадження') {
+                    stats.sav[t.category] = (stats.sav[t.category] || 0) + t.amount;
+                }
+            });
+
+            document.getElementById('total-exp').innerText = `${stats.totalExp.toLocaleString()} ₴`;
+            document.getElementById('total-inc').innerText = `${stats.totalInc.toLocaleString()} ₴`;
+            
+            document.getElementById('details-exp').innerHTML = Object.entries(stats.exp).map(([c, s]) => `<div class="flex justify-between font-medium"><span>${c}</span><span>${s.toLocaleString()} ₴</span></div>`).join('');
+            document.getElementById('details-inc').innerHTML = Object.entries(stats.inc).map(([c, s]) => `<div class="flex justify-between font-medium"><span>${c}</span><span>${s.toLocaleString()} ₴</span></div>`).join('');
+            document.getElementById('details-sav').innerHTML = Object.entries(stats.sav).map(([c, s]) => `<div class="flex justify-between font-medium"><span>${c}</span><span>${s.toLocaleString()}</span></div>`).join('');
+
+            updateChart(filtered);
+        }
+
+        function updateChart(monthData) {
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
+            const weeklyData = [0, 0, 0, 0, 0];
+            monthData.forEach(t => {
+                if (t.type === 'Витрати' && t.currency === 'UAH') {
+                    const date = new Date(t.created_at);
+                    const weekNum = Math.ceil((date.getDate() + new Date(date.getFullYear(), date.getMonth(), 1).getDay() - 1) / 7);
+                    if(weekNum <= 5) weeklyData[weekNum-1] += t.amount;
+                }
+            });
+
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Тиж 1', 'Тиж 2', 'Тиж 3', 'Тиж 4', 'Тиж 5'],
+                    datasets: [{ data: weeklyData, backgroundColor: '#3b82f6', borderRadius: 10, barThickness: 25 }]
+                },
+                options: { 
+                    plugins: { legend: { display: false } }, 
+                    scales: { y: { display: false }, x: { grid: { display: false }, border: { display: false } } } 
+                }
+            });
+        }
+
+        function changeMonth(step) {
+            currentViewDate.setMonth(currentViewDate.getMonth() + step);
+            renderArchive();
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>
