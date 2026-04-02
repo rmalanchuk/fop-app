@@ -320,6 +320,9 @@ if (FINANCE_TOKEN) {
             if (isNaN(amount)) return ctx.reply('Введіть число:');
 
             const { category, type } = ctx.scene.session.state;
+            let currency = 'UAH';
+            if (category === 'Долари') currency = 'USD';
+            if (category === 'Євро') currency = 'EUR';
             await supabase.from('family_finances').insert([{
                 user_id: ctx.from.id, type, category, amount, currency: 'UAH'
             }]);
@@ -445,22 +448,42 @@ if (FINANCE_TOKEN) {
     finBot.hears(allSimpleCats, (ctx) => ctx.scene.enter('ADD_TRANSACTION_SCENE'));
 
     // --- 5. Швидкий текстовий ввід ---
-    finBot.on('text', async (ctx, next) => {
-        const text = ctx.message.text.trim();
-        const match = text.match(/^([А-Яа-яіІєЄґҐa-zA-Z]+)\s+(\d+(?:[.,]\d+)?)$/u);
-        if (!match) return;
+    // --- 5. Швидкий текстовий ввід (Оновлений) ---
+finBot.on('text', async (ctx, next) => {
+    const text = ctx.message.text.trim();
+    // Регулярка для формату "Категорія Сума"
+    const match = text.match(/^([А-Яа-яіІєЄґҐa-zA-Z]+)\s+(\d+(?:[.,]\d+)?)$/u);
+    if (!match) return;
 
-        let [_, catInput, amountStr] = match;
-        const amount = parseFloat(amountStr.replace(',', '.'));
-        const category = CATEGORIES.EXPENSES.find(c => c.toLowerCase() === catInput.toLowerCase());
+    let [_, catInput, amountStr] = match;
+    const amount = parseFloat(amountStr.replace(',', '.'));
+    
+    // Шукаємо категорію у всіх списках (Витрати, Доходи, Заощадження)
+    const allCats = [...CATEGORIES.EXPENSES, ...CATEGORIES.INCOME, ...CATEGORIES.SAVINGS];
+    const category = allCats.find(c => c.toLowerCase() === catInput.toLowerCase());
 
-        if (!category) return ctx.reply(`⚠️ Категорія "${catInput}" не знайдена.`);
+    if (!category) return ctx.reply(`⚠️ Категорія "${catInput}" не знайдена.`);
 
-        await supabase.from('family_finances').insert([{
-            user_id: ctx.from.id, type: 'Витрати', category, amount, currency: 'UAH'
-        }]);
-        ctx.reply(`✅ Швидкий запис: ${category} ${amount} грн`);
-    });
+    // Визначаємо тип
+    let type = 'Витрати';
+    if (CATEGORIES.INCOME.includes(category)) type = 'Доходи';
+    if (CATEGORIES.SAVINGS.includes(category)) type = 'Заощадження';
+
+    // Визначаємо валюту
+    let currency = 'UAH';
+    if (category === 'Долари') currency = 'USD';
+    if (category === 'Євро') currency = 'EUR';
+
+    await supabase.from('family_finances').insert([{
+        user_id: ctx.from.id, 
+        type, 
+        category, 
+        amount, 
+        currency
+    }]);
+
+    ctx.reply(`✅ Швидкий запис: ${category} ${amount} ${currency}`);
+});
 
     finBot.launch().then(() => console.log('Finance Bot started'));
 }
