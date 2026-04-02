@@ -123,13 +123,19 @@
                 document.body.innerHTML = "<div class='text-center py-20 text-slate-400'>❌ Потрібен секретний ключ доступу</div>";
                 return;
             }
-            try {
-                const res = await fetch(`/api/dashboard?key=${SECRET_KEY}`);
+           try {
+                // Вказуємо ПОВНУ адресу твого сервера на Render
+                const res = await fetch(`https://fop-app-02d3.onrender.com/api/dashboard?key=${SECRET_KEY}`);
+                
+                // Перевірка, чи сервер взагалі відповів успішно
+                if (!res.ok) throw new Error(`Помилка сервера: ${res.status}`);
+            
                 const data = await res.json();
                 allData = data.history || [];
                 renderDashboard(data);
-            } catch (e) { console.error(e); }
-        }
+            } catch (e) { 
+                console.error("Помилка завантаження даних:", e); 
+            }
 
         function renderDashboard(data) {
             document.getElementById('safe-uah').innerText = data.safe.UAH.toLocaleString() + ' ₴';
