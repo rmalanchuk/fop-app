@@ -19,14 +19,9 @@
 </head>
 <body class="p-4 pb-20 max-w-lg mx-auto">
 
-    <div class="flex justify-between items-center mb-8 pt-2">
-        <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Family Finance</h1>
-            <p class="text-xs font-medium text-slate-400">Аналітика та капітал</p>
-        </div>
-        <div class="h-9 px-3 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center border border-blue-100">
-            <span class="text-[10px] font-bold uppercase tracking-widest italic">Live Sync</span>
-        </div>
+    <div class="text-center mb-8 pt-4">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Family Finance</h1>
+        <p class="text-xs font-medium text-slate-400">Аналітика та капітал</p>
     </div>
 
     <div class="flex mb-8 bg-white p-1 rounded-2xl shadow-sm border border-slate-100 sticky top-4 z-50">
@@ -67,7 +62,7 @@
 
         <div class="card p-6 mb-6">
             <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest flex items-center">
-                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Динаміка витрат (UAH)
+                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Витрати по тижнях (UAH)
             </h3>
             <canvas id="weeklyChart" height="180"></canvas>
         </div>
@@ -117,15 +112,14 @@
         }
 
         function renderDashboard() {
-            // Рахуємо статистику за поточний місяць
             const now = new Date();
             const currentMonthData = allData.filter(t => {
                 const d = new Date(t.created_at);
                 return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.currency === 'UAH';
             });
 
-            const mExp = currentMonthData.filter(t => t.type === 'Витрати').reduce((sum, t) => sum + t.amount, 0);
-            const mInc = currentMonthData.filter(t => t.type === 'Доходи').reduce((sum, t) => sum + t.amount, 0);
+            const mExp = currentMonthData.filter(t => t.type === 'Витрати').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            const mInc = currentMonthData.filter(t => t.type === 'Доходи').reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
             document.getElementById('stat-expenses').innerText = mExp.toLocaleString() + ' ₴';
             document.getElementById('stat-income').innerText = mInc.toLocaleString() + ' ₴';
@@ -183,9 +177,9 @@
             let totalExp = 0, totalInc = 0, totalSav = 0;
 
             filtered.forEach(t => {
-                if (t.type === 'Витрати' && t.currency === 'UAH') { totalExp += t.amount; stats.Витрати[t.category] = (stats.Витрати[t.category] || 0) + t.amount; }
-                if (t.type === 'Доходи' && t.currency === 'UAH') { totalInc += t.amount; stats.Доходи[t.category] = (stats.Доходи[t.category] || 0) + t.amount; }
-                if (t.type === 'Заощадження' && t.currency === 'UAH') { totalSav += t.amount; stats.Заощадження[t.category] = (stats.Заощадження[t.category] || 0) + t.amount; }
+                if (t.type === 'Витрати' && t.currency === 'UAH') { totalExp += Math.abs(t.amount); stats.Витрати[t.category] = (stats.Витрати[t.category] || 0) + Math.abs(t.amount); }
+                if (t.type === 'Доходи' && t.currency === 'UAH') { totalInc += Math.abs(t.amount); stats.Доходи[t.category] = (stats.Доходи[t.category] || 0) + Math.abs(t.amount); }
+                if (t.type === 'Заощадження' && t.currency === 'UAH') { totalSav += Math.abs(t.amount); stats.Заощадження[t.category] = (stats.Заощадження[t.category] || 0) + Math.abs(t.amount); }
             });
 
             updateSummary('exp', '💸', 'Витрати', totalExp, stats.Витрати, 'text-red-600');
@@ -202,34 +196,51 @@
 
         function renderChart(data) {
             const ctx = document.getElementById('weeklyChart').getContext('2d');
-            const daily = {};
+            
+            // Групування по тижнях
+            const weekly = { 'Тиждень 1': 0, 'Тиждень 2': 0, 'Тиждень 3': 0, 'Тиждень 4': 0, 'Тиждень 5': 0 };
+            
             data.filter(t => t.type === 'Витрати' && t.currency === 'UAH').forEach(t => {
                 const day = new Date(t.created_at).getDate();
-                daily[day] = (daily[day] || 0) + Math.abs(t.amount);
+                let weekKey = 'Тиждень 1';
+                if (day > 7) weekKey = 'Тиждень 2';
+                if (day > 14) weekKey = 'Тиждень 3';
+                if (day > 21) weekKey = 'Тиждень 4';
+                if (day > 28) weekKey = 'Тиждень 5';
+                weekly[weekKey] += Math.abs(t.amount);
             });
 
-            const labels = Object.keys(daily).sort((a,b) => a-b);
-            const values = labels.map(l => daily[l]);
+            const labels = Object.keys(weekly);
+            const values = Object.values(weekly);
 
             if (myChart) myChart.destroy();
             myChart = new Chart(ctx, {
-                type: 'bar', // Змінено на стовпчики
+                type: 'bar',
                 data: {
                     labels,
                     datasets: [{
-                        label: 'Витрати',
+                        label: 'Витрати за тиждень',
                         data: values,
                         backgroundColor: '#3b82f6',
-                        borderRadius: 6,
-                        borderSkipped: false,
+                        borderRadius: 8,
+                        hoverBackgroundColor: '#2563eb'
                     }]
                 },
                 options: { 
                     responsive: true,
-                    plugins: { legend: { display: false } }, 
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            displayColors: false,
+                            callbacks: {
+                                label: (context) => `Сума: ${context.raw.toLocaleString()} ₴`
+                            }
+                        }
+                    }, 
                     scales: { 
-                        y: { beginAtZero: true, grid: { display: true, color: '#f1f5f9' }, border: { display: false } },
-                        x: { grid: { display: false } }
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
                     } 
                 }
             });
