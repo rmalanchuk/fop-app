@@ -15,6 +15,8 @@
         details summary::-webkit-details-marker { display: none; }
         .animate-fade { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        /* Фіксація висоти контейнера графіка */
+        .chart-container { position: relative; height: 200px; width: 100%; }
     </style>
 </head>
 <body class="p-4 pb-20 max-w-lg mx-auto">
@@ -64,7 +66,9 @@
             <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest flex items-center">
                 <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Витрати по тижнях (UAH)
             </h3>
-            <canvas id="weeklyChart" height="180"></canvas>
+            <div class="chart-container">
+                <canvas id="weeklyChart"></canvas>
+            </div>
         </div>
 
         <div class="space-y-4">
@@ -195,9 +199,10 @@
         }
 
         function renderChart(data) {
-            const ctx = document.getElementById('weeklyChart').getContext('2d');
+            const canvas = document.getElementById('weeklyChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             
-            // Групування по тижнях
             const weekly = { 'Тиждень 1': 0, 'Тиждень 2': 0, 'Тиждень 3': 0, 'Тиждень 4': 0, 'Тиждень 5': 0 };
             
             data.filter(t => t.type === 'Витрати' && t.currency === 'UAH').forEach(t => {
@@ -210,17 +215,13 @@
                 weekly[weekKey] += Math.abs(t.amount);
             });
 
-            const labels = Object.keys(weekly);
-            const values = Object.values(weekly);
-
             if (myChart) myChart.destroy();
             myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels,
+                    labels: Object.keys(weekly),
                     datasets: [{
-                        label: 'Витрати за тиждень',
-                        data: values,
+                        data: Object.values(weekly),
                         backgroundColor: '#3b82f6',
                         borderRadius: 8,
                         hoverBackgroundColor: '#2563eb'
@@ -228,7 +229,7 @@
                 },
                 options: { 
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: false, // ВАЖЛИВО: дозволяє контейнеру керувати висотою
                     plugins: { 
                         legend: { display: false },
                         tooltip: {
