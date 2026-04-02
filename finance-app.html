@@ -123,11 +123,10 @@
                 document.body.innerHTML = "<div class='text-center py-20 text-slate-400'>❌ Потрібен секретний ключ доступу</div>";
                 return;
             }
-           try {
+            try {
                 // Вказуємо ПОВНУ адресу твого сервера на Render
                 const res = await fetch(`https://fop-app-02d3.onrender.com/api/dashboard?key=${SECRET_KEY}`);
                 
-                // Перевірка, чи сервер взагалі відповів успішно
                 if (!res.ok) throw new Error(`Помилка сервера: ${res.status}`);
             
                 const data = await res.json();
@@ -136,11 +135,17 @@
             } catch (e) { 
                 console.error("Помилка завантаження даних:", e); 
             }
+        } // <--- ОСЬ ЦЯ ДУЖКА БУЛА ПРОПУЩЕНА
 
         function renderDashboard(data) {
-            document.getElementById('safe-uah').innerText = data.safe.UAH.toLocaleString() + ' ₴';
-            document.getElementById('safe-usd').innerText = data.safe.USD.toLocaleString() + ' $';
-            document.getElementById('safe-eur').innerText = data.safe.EUR.toLocaleString() + ' €';
+            // Перевірка на випадок порожніх даних
+            const uah = data.safe?.UAH || 0;
+            const usd = data.safe?.USD || 0;
+            const eur = data.safe?.EUR || 0;
+
+            document.getElementById('safe-uah').innerText = uah.toLocaleString() + ' ₴';
+            document.getElementById('safe-usd').innerText = usd.toLocaleString() + ' $';
+            document.getElementById('safe-eur').innerText = eur.toLocaleString() + ' €';
 
             const journal = document.getElementById('journal');
             journal.innerHTML = (data.history || []).map(t => {
@@ -204,7 +209,9 @@
         }
 
         function updateChart(monthData) {
-            const ctx = document.getElementById('weeklyChart').getContext('2d');
+            const chartEl = document.getElementById('weeklyChart');
+            if (!chartEl) return;
+            const ctx = chartEl.getContext('2d');
             const weeklyData = [0, 0, 0, 0, 0];
             monthData.forEach(t => {
                 if (t.type === 'Витрати' && t.currency === 'UAH') {
@@ -233,6 +240,7 @@
             renderArchive();
         }
 
+        // Запуск
         fetchData();
     </script>
 </body>
