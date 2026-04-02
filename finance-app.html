@@ -122,36 +122,37 @@
     <script>
         let allData = [];
         let safeData = { UAH: 0, USD: 0, EUR: 0 };
-        let isExpanded = false; // Стан кнопки Розгорнути/Згорнути
+        let isExpanded = false;
     
-        // 1. Зберігання ключа в LocalStorage
+        // 1. Секретний ключ
         function getSecretKey() {
             let key = localStorage.getItem('finance_key');
             if (!key) {
-                key = prompt("Введіть ваш секретний ключ (SECRET_KEY):");
+                key = prompt("Введіть SECRET_KEY:");
                 if (key) localStorage.setItem('finance_key', key);
             }
             return key;
         }
     
-        // 2. Перемикання табів (виправлено)
+        // 2. Перемикання табів (виправлено помилку з null)
         function switchTab(tab) {
             const dashboard = document.getElementById('dashboard-content');
             const analytics = document.getElementById('analytics-content');
             const tabs = document.querySelectorAll('.tab-btn');
+    
+            if (!dashboard || !analytics) return console.error("ID контенту не знайдено!");
     
             tabs.forEach(t => t.classList.remove('active', 'border-blue-500', 'text-blue-600'));
             
             if (tab === 'dashboard') {
                 dashboard.classList.remove('hidden');
                 analytics.classList.add('hidden');
-                event.currentTarget.classList.add('active', 'border-blue-500', 'text-blue-600');
             } else {
                 dashboard.classList.add('hidden');
                 analytics.classList.remove('hidden');
-                event.currentTarget.classList.add('active', 'border-blue-500', 'text-blue-600');
-                renderAnalytics(); // Викликаємо графіки при переході
+                renderAnalytics();
             }
+            event.currentTarget.classList.add('active', 'border-blue-500', 'text-blue-600');
         }
     
         // 3. Завантаження даних
@@ -161,47 +162,35 @@
     
             try {
                 const res = await fetch(`https://fop-app-02d3.onrender.com/api/dashboard?key=${key}`);
-                if (!res.ok) throw new Error("Auth failed");
-    
                 const data = await res.json();
                 allData = data.history || [];
                 safeData = data.safe || { UAH: 0, USD: 0, EUR: 0 };
-    
                 renderDashboard();
             } catch (e) {
                 console.error(e);
                 localStorage.removeItem('finance_key');
-                alert("Помилка доступу. Ключ скинуто.");
             }
         }
     
-        // 4. Логіка кнопки Розгорнути/Згорнути
+        // 4. Функція кнопки Розгорнути/Згорнути
         function toggleExpand() {
             isExpanded = !isExpanded;
             renderDashboard();
         }
     
-        // 5. Рендер головного екрану
+        // 5. Рендер списку транзакцій
         function renderDashboard() {
-            // Оновлюємо назву місяця
-            const now = new Date();
-            document.getElementById('month-name').innerText = new Intl.DateTimeFormat('uk-UA', { month: 'long' }).format(now);
-    
-            // Картки залишків
+            // Оновлення балансів
             document.getElementById('safe-uah').innerText = safeData.UAH.toLocaleString() + ' ₴';
             document.getElementById('safe-usd').innerText = safeData.USD.toLocaleString() + ' $';
             document.getElementById('safe-eur').innerText = safeData.EUR.toLocaleString() + ' €';
     
             const journal = document.getElementById('journal');
             const btn = document.getElementById('btn-show-all');
+            
+            if (allData.length === 0) return;
     
-            if (allData.length === 0) {
-                journal.innerHTML = "<p class='text-center py-10 text-slate-400 text-sm'>Операцій не знайдено</p>";
-                btn.style.display = 'none';
-                return;
-            }
-    
-            // Відображаємо 5 або всі
+            // Фільтрація: 5 останніх або всі
             const displayData = isExpanded ? allData : allData.slice(0, 5);
             btn.innerText = isExpanded ? "Згорнути" : "Показати всі →";
             btn.style.display = allData.length > 5 ? 'block' : 'none';
@@ -224,31 +213,35 @@
                                 <p class="text-[10px] text-slate-400 font-medium">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <p class="font-bold ${textColor} text-sm">
-                                 ${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}
-                                 ${t.is_from_savings ? '<span class="ml-1">🏦</span>' : ''}
-                            </p>
-                            ${t.is_from_savings ? '<p class="text-[8px] font-black text-blue-500 uppercase tracking-tighter">З капіталу</p>' : ''}
+                        
+                        <div class="flex items-center">
+                            ${t.is_from_savings ? `
+                                <div class="flex flex-col items-end mr-3">
+                                    <span class="text-sm">🏦</span>
+                                    <span class="text-[8px] font-black text-blue-500 uppercase leading-none">Капітал</span>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="text-right min-w-[80px]">
+                                <p class="font-bold ${textColor} text-sm whitespace-nowrap">
+                                    ${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
         }
     
-        // 6. Заглушка для аналітики (щоб не було помилок)
         function renderAnalytics() {
-            const container = document.getElementById('analytics-content');
-            container.innerHTML = `
+            document.getElementById('analytics-content').innerHTML = `
                 <div class="text-center py-20">
                     <div class="text-4xl mb-4">📊</div>
-                    <h3 class="text-slate-800 font-bold">Аналітика в розробці</h3>
-                    <p class="text-slate-400 text-sm">Скоро тут будуть графіки твоїх витрат.</p>
-                </div>
-            `;
+                    <h3 class="font-bold">Розділ аналітики</h3>
+                    <p class="text-slate-400 text-sm">Тут скоро з'являться графіки.</p>
+                </div>`;
         }
     
-        // Запуск при завантаженні
         window.onload = fetchData;
     </script>
 </body>
