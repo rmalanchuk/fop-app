@@ -36,21 +36,18 @@
 
     <div id="content-dashboard" class="animate-fade">
         <div class="px-1 mb-3 flex justify-between items-end">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Залишки на рахунках</p>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Активність за місяць (UAH)</p>
             <p id="month-name" class="text-[10px] font-bold text-blue-500 uppercase"></p>
         </div>
-        <div class="grid grid-cols-3 gap-3 mb-10">
-            <div class="card p-4 text-center border-b-4 border-blue-100">
-                <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">₴ UAH</p>
-                <p id="safe-uah" class="text-sm font-bold text-slate-800">0</p>
+        
+        <div class="grid grid-cols-2 gap-3 mb-10">
+            <div class="card p-4 border-b-4 border-red-100">
+                <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">Витрачено</p>
+                <p id="stat-expenses" class="text-lg font-bold text-red-600">0 ₴</p>
             </div>
-            <div class="card p-4 text-center border-b-4 border-blue-100">
-                <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">$ USD</p>
-                <p id="safe-usd" class="text-sm font-bold text-slate-800">0</p>
-            </div>
-            <div class="card p-4 text-center border-b-4 border-blue-100">
-                <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">€ EUR</p>
-                <p id="safe-eur" class="text-sm font-bold text-slate-800">0</p>
+            <div class="card p-4 border-b-4 border-green-100">
+                <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">Отримано</p>
+                <p id="stat-income" class="text-lg font-bold text-green-600">0 ₴</p>
             </div>
         </div>
 
@@ -114,12 +111,24 @@
             } catch (e) { localStorage.removeItem('finance_key'); }
         }
 
-        function toggleExpand() { isExpanded = !isExpanded; renderDashboard(); }
+        function toggleExpand() { 
+            isExpanded = !isExpanded; 
+            renderDashboard(); 
+        }
 
         function renderDashboard() {
-            document.getElementById('safe-uah').innerText = safeData.UAH.toLocaleString() + ' ₴';
-            document.getElementById('safe-usd').innerText = safeData.USD.toLocaleString() + ' $';
-            document.getElementById('safe-eur').innerText = safeData.EUR.toLocaleString() + ' €';
+            // Рахуємо статистику за поточний місяць
+            const now = new Date();
+            const currentMonthData = allData.filter(t => {
+                const d = new Date(t.created_at);
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.currency === 'UAH';
+            });
+
+            const mExp = currentMonthData.filter(t => t.type === 'Витрати').reduce((sum, t) => sum + t.amount, 0);
+            const mInc = currentMonthData.filter(t => t.type === 'Доходи').reduce((sum, t) => sum + t.amount, 0);
+
+            document.getElementById('stat-expenses').innerText = mExp.toLocaleString() + ' ₴';
+            document.getElementById('stat-income').innerText = mInc.toLocaleString() + ' ₴';
 
             const displayData = isExpanded ? allData : allData.slice(0, 5);
             const btn = document.getElementById('btn-show-all');
@@ -137,11 +146,22 @@
                     <div class="card p-4 flex justify-between items-center mb-3">
                         <div class="flex items-center">
                             <div class="w-10 h-10 rounded-xl ${bg} flex items-center justify-center mr-4">${icon}</div>
-                            <div><p class="font-bold text-sm text-slate-800">${t.category}</p><p class="text-[10px] text-slate-400">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p></div>
+                            <div>
+                                <p class="font-bold text-sm text-slate-800">${t.category}</p>
+                                <p class="text-[10px] text-slate-400">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p>
+                            </div>
                         </div>
                         <div class="flex items-center">
-                            ${t.is_from_savings ? `<div class="flex flex-col items-end mr-3 opacity-80"><span class="text-xs">🏦</span><span class="text-[7px] font-black text-blue-500 uppercase leading-none">Капітал</span></div>` : ''}
-                            <div class="text-right min-w-[75px]"><p class="font-bold ${color} text-sm">${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}</p></div>
+                            ${t.is_from_savings ? `
+                                <div class="flex items-center mr-3 opacity-80">
+                                    <div class="flex flex-col items-center">
+                                        <span class="text-xs">🏦</span>
+                                        <span class="text-[7px] font-black text-blue-500 uppercase leading-none">Капітал</span>
+                                    </div>
+                                </div>` : ''}
+                            <div class="text-right min-w-[75px]">
+                                <p class="font-bold ${color} text-sm">${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}</p>
+                            </div>
                         </div>
                     </div>`;
             }).join('');
@@ -163,10 +183,9 @@
             let totalExp = 0, totalInc = 0, totalSav = 0;
 
             filtered.forEach(t => {
-                const amt = t.currency === 'UAH' ? t.amount : 0; // Для графіку лише UAH
-                if (t.type === 'Витрати') { totalExp += t.amount; stats.Витрати[t.category] = (stats.Витрати[t.category] || 0) + t.amount; }
-                if (t.type === 'Доходи') { totalInc += t.amount; stats.Доходи[t.category] = (stats.Доходи[t.category] || 0) + t.amount; }
-                if (t.type === 'Заощадження') { totalSav += t.amount; stats.Заощадження[t.category] = (stats.Заощадження[t.category] || 0) + t.amount; }
+                if (t.type === 'Витрати' && t.currency === 'UAH') { totalExp += t.amount; stats.Витрати[t.category] = (stats.Витрати[t.category] || 0) + t.amount; }
+                if (t.type === 'Доходи' && t.currency === 'UAH') { totalInc += t.amount; stats.Доходи[t.category] = (stats.Доходи[t.category] || 0) + t.amount; }
+                if (t.type === 'Заощадження' && t.currency === 'UAH') { totalSav += t.amount; stats.Заощадження[t.category] = (stats.Заощадження[t.category] || 0) + t.amount; }
             });
 
             updateSummary('exp', '💸', 'Витрати', totalExp, stats.Витрати, 'text-red-600');
@@ -194,23 +213,25 @@
 
             if (myChart) myChart.destroy();
             myChart = new Chart(ctx, {
-                type: 'line',
+                type: 'bar', // Змінено на стовпчики
                 data: {
                     labels,
                     datasets: [{
                         label: 'Витрати',
                         data: values,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#fff',
-                        pointBorderWidth: 2
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6,
+                        borderSkipped: false,
                     }]
                 },
-                options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } } } }
+                options: { 
+                    responsive: true,
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        y: { beginAtZero: true, grid: { display: true, color: '#f1f5f9' }, border: { display: false } },
+                        x: { grid: { display: false } }
+                    } 
+                }
             });
         }
 
