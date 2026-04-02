@@ -288,6 +288,7 @@ if (TELEGRAM_TOKEN) {
 
 if (FINANCE_TOKEN) {
     const finBot = new Telegraf(FINANCE_TOKEN);
+    finBot.use(session());
 
     // --- 1. Middleware Безпеки ---
     finBot.use((ctx, next) => {
@@ -295,65 +296,86 @@ if (FINANCE_TOKEN) {
         console.log(`Unauthorized access: ${ctx.from?.id}`);
     });
 
-    finBot.use(session());
+    // --- 2. Сцени (Wizard Scenes) ---
 
-    // --- 2. Сцени для покрокового вводу ---
-    const financeScene = new Scenes.WizardScene(
+    // Сцена для звичайних витрат/доходів
+    const transactionScene = new Scenes.WizardScene(
         'ADD_TRANSACTION_SCENE',
-        // Крок 1: Вибір категорії (вже зроблено кнопкою, тут просто чекаємо суму)
         async (ctx) => {
-            const category = ctx.message.text;
-            ctx.scene.session.state.category = category;
+            ctx.scene.session.state.category = ctx.message.text;
+            const cat = ctx.message.text;
+            let type = 'Витрати';
+            if (CATEGORIES.INCOME.includes(cat)) type = 'Доходи';
+            if (CATEGORIES.SAVINGS.includes(cat)) type = 'Заощадження';
             
-            // Визначаємо тип на основі категорії
-            if (CATEGORIES.INCOME.includes(category)) ctx.scene.session.state.type = 'Доходи';
-            else if (CATEGORIES.SAVINGS.includes(category)) ctx.scene.session.state.type = 'Заощадження';
-            else ctx.scene.session.state.type = 'Витрати';
-
-            await ctx.reply(`Обрано категорію: ${category}. Введіть суму:`, {
+            ctx.scene.session.state.type = type;
+            await ctx.reply(`Введіть суму для "${cat}":`, {
                 reply_markup: { keyboard: [[{ text: '⬅️ Назад' }]], resize_keyboard: true }
             });
             return ctx.wizard.next();
         },
-        // Крок 2: Отримання суми та запис
         async (ctx) => {
-            if (ctx.message.text === '⬅️ Назад') {
-                await ctx.scene.leave();
-                return showMainMenu(ctx);
-            }
-
+            if (ctx.message.text === '⬅️ Назад') return exitScene(ctx);
             const amount = parseFloat(ctx.message.text.replace(',', '.'));
-            if (isNaN(amount)) return ctx.reply('Будь ласка, введіть числове значення суми:');
+            if (isNaN(amount)) return ctx.reply('Введіть число:');
 
             const { category, type } = ctx.scene.session.state;
-
-            try {
-                await supabase.from('family_finances').insert([{
-                    user_id: ctx.from.id,
-                    type: type,
-                    category: category,
-                    amount: amount,
-                    currency: 'UAH' // Дефолт для звичайних витрат
-                }]);
-                await ctx.reply(`✅ Записано: ${type} -> ${category}: ${amount} грн`);
-            } catch (e) {
-                ctx.reply('❌ Помилка запису в базу.');
-            }
-            return ctx.scene.leave();
+            await supabase.from('family_finances').insert([{
+                user_id: ctx.from.id, type, category, amount, currency: 'UAH'
+            }]);
+            await ctx.reply(`✅ Записано: ${category} ${amount} грн`);
+            return exitScene(ctx);
         }
     );
 
-    const stage = new Scenes.Stage([financeScene]);
+    // Сцена для витрат ІЗ ЗАОЩАДЖЕНЬ (з вибором валюти)
+    const savingsExpenseScene = new Scenes.WizardScene(
+        'SAVINGS_EXPENSE_SCENE',
+        async (ctx) => {
+            ctx.scene.session.state.currency = ctx.message.text.split(' ')[0]; // Витягуємо USD/EUR/UAH
+            const buttons = CATEGORIES.EXPENSES.map(c => [{ text: c }]);
+            buttons.push([{ text: '⬅️ Назад' }]);
+            await ctx.reply('На яку категорію витрачаємо з сейфа?', {
+                reply_markup: { keyboard: buttons, resize_keyboard: true }
+            });
+            return ctx.wizard.next();
+        },
+        async (ctx) => {
+            if (ctx.message.text === '⬅️ Назад') return exitScene(ctx);
+            ctx.scene.session.state.category = ctx.message.text;
+            await ctx.reply(`Введіть суму витрати (${ctx.scene.session.state.currency}):`);
+            return ctx.wizard.next();
+        },
+        async (ctx) => {
+            const amount = parseFloat(ctx.message.text.replace(',', '.'));
+            if (isNaN(amount)) return ctx.reply('Введіть число:');
+            const { currency, category } = ctx.scene.session.state;
+
+            await supabase.from('family_finances').insert([{
+                user_id: ctx.from.id, type: 'Витрати', category, amount, currency, is_from_savings: true
+            }]);
+            await ctx.reply(`✅ Записано: Витрата з сейфа [${currency}] на ${category}: ${amount}`);
+            return exitScene(ctx);
+        }
+    );
+
+    const stage = new Scenes.Stage([transactionScene, savingsExpenseScene]);
     finBot.use(stage.middleware());
+
+    const exitScene = async (ctx) => {
+        await ctx.scene.leave();
+        return showMainMenu(ctx);
+    };
 
     // --- 3. Головне Меню ---
     const showMainMenu = (ctx) => {
-        return ctx.reply('Оберіть дію:', {
+        return ctx.reply('Family Finance: Головне меню', {
             reply_markup: {
                 keyboard: [
                     ['💸 Витрати', '💰 Доходи'],
                     ['🏦 Заощадження', '📉 Витрата з заощаджень'],
-                    ['🔙 Скасувати останній запис', '❓ Довідка']
+                    ['🔙 Скасувати останній запис'],
+                    ['❓ Довідка']
                 ],
                 resize_keyboard: true
             }
@@ -362,7 +384,8 @@ if (FINANCE_TOKEN) {
 
     finBot.start((ctx) => showMainMenu(ctx));
 
-    // Обробка кнопок категорій
+    // --- 4. Обробка кнопок Меню ---
+
     finBot.hears('💸 Витрати', (ctx) => {
         const buttons = CATEGORIES.EXPENSES.map(c => [{ text: c }]);
         buttons.push([{ text: '⬅️ Назад' }]);
@@ -375,17 +398,57 @@ if (FINANCE_TOKEN) {
         ctx.reply('Оберіть джерело доходу:', { reply_markup: { keyboard: buttons, resize_keyboard: true } });
     });
 
+    finBot.hears('🏦 Заощадження', (ctx) => {
+        const buttons = CATEGORIES.SAVINGS.map(c => [{ text: c }]);
+        buttons.push([{ text: '⬅️ Назад' }]);
+        ctx.reply('Що саме відкладаємо в сейф?', { reply_markup: { keyboard: buttons, resize_keyboard: true } });
+    });
+
+    finBot.hears('📉 Витрата з заощаджень', (ctx) => {
+        const buttons = [['UAH (Гривні)', 'USD (Долари)', 'EUR (Євро)'], ['⬅️ Назад']];
+        ctx.reply('З якої валюти сейфа знімаємо кошти?', { reply_markup: { keyboard: buttons, resize_keyboard: true } });
+    });
+
+    finBot.hears(['UAH (Гривні)', 'USD (Долари)', 'EUR (Євро)'], (ctx) => ctx.scene.enter('SAVINGS_EXPENSE_SCENE'));
+
+    finBot.hears('❓ Довідка', (ctx) => {
+        ctx.replyWithMarkdown(
+            `ℹ️ **Довідка Family Finance**\n\n` +
+            `1. **Швидкий ввід:** Пиши просто \`Категорія Сума\` (напр. *Продукти 500*).\n` +
+            `2. **Кнопки:** Використовуй меню для детальних записів.\n` +
+            `3. **Заощадження:** Це поповнення "сейфа".\n` +
+            `4. **Витрата з заощаджень:** Коли купуєш щось за валюту або знімаєш велику суму з капіталу.`
+        );
+    });
+
+    finBot.hears('🔙 Скасувати останній запис', async (ctx) => {
+        const { data, error } = await supabase
+            .from('family_finances')
+            .select('*')
+            .eq('user_id', ctx.from.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (data && data.length > 0) {
+            const last = data[0];
+            await supabase.from('family_finances').delete().eq('id', last.id);
+            ctx.reply(`🗑 Видалено останній запис: ${last.category} - ${last.amount} ${last.currency}`);
+        } else {
+            ctx.reply('Записів не знайдено.');
+        }
+    });
+
     finBot.hears('⬅️ Назад', (ctx) => showMainMenu(ctx));
 
-    // Запуск сцени при виборі конкретної категорії
-    const allCats = [...CATEGORIES.EXPENSES, ...CATEGORIES.INCOME, ...CATEGORIES.SAVINGS];
-    finBot.hears(allCats, (ctx) => ctx.scene.enter('ADD_TRANSACTION_SCENE'));
+    // Запуск сцени для всіх категорій
+    const allSimpleCats = [...CATEGORIES.EXPENSES, ...CATEGORIES.INCOME, ...CATEGORIES.SAVINGS];
+    finBot.hears(allSimpleCats, (ctx) => ctx.scene.enter('ADD_TRANSACTION_SCENE'));
 
-    // --- 4. Швидкий текстовий ввід (Пункт 3-А) ---
+    // --- 5. Швидкий текстовий ввід ---
     finBot.on('text', async (ctx, next) => {
         const text = ctx.message.text.trim();
         const match = text.match(/^([А-Яа-яіІєЄґҐa-zA-Z]+)\s+(\d+(?:[.,]\d+)?)$/u);
-        if (!match) return next();
+        if (!match) return;
 
         let [_, catInput, amountStr] = match;
         const amount = parseFloat(amountStr.replace(',', '.'));
@@ -401,7 +464,6 @@ if (FINANCE_TOKEN) {
 
     finBot.launch().then(() => console.log('Finance Bot started'));
 }
-
 // ── Допоміжні функції Mono/NBU ──
 const nbuRateCache = {};
 async function getNbuRate(timestamp) {
