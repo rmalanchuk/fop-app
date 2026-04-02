@@ -408,7 +408,11 @@ if (FINANCE_TOKEN) {
 
     // --- АВТОМАТИЗАЦІЯ ЗВІТІВ (CRON) ---
 const cron = require('node-cron');
-const GROUP_CHAT_ID = process.env.GROUP_CHAT_ID;
+let GROUP_CHAT_ID = process.env.GROUP_CHAT_ID;
+if (GROUP_CHAT_ID && !GROUP_CHAT_ID.startsWith('-100')) {
+    GROUP_CHAT_ID = '-100' + GROUP_CHAT_ID.replace('-', '');
+}
+console.log(`🚀 Фінансовий бот ініціалізовано для чату: ${GROUP_CHAT_ID}`);
 
 if (finBot && GROUP_CHAT_ID) {
     
@@ -473,8 +477,14 @@ if (finBot && GROUP_CHAT_ID) {
 
     // 3. Тестова команда (тільки для тебе)
     finBot.command('test_report', async (ctx) => {
-        await ctx.reply("🚀 Надсилаю тестовий звіт у групу...");
-        await sendWeeklyReport(GROUP_CHAT_ID);
+        await ctx.reply(`🔍 Перевіряю ID групи: ${GROUP_CHAT_ID}`);
+        try {
+            await sendWeeklyReport(GROUP_CHAT_ID);
+            await ctx.reply("✅ Звіт відправлено!");
+        } catch (e) {
+            console.error("DEBUG ERROR:", e);
+            await ctx.reply(`❌ Помилка! Бот намагався відправити на ${GROUP_CHAT_ID}, але Telegram відмовив: ${e.description}`);
+        }
     });
 
     const exitScene = async (ctx) => {
