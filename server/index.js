@@ -6,21 +6,51 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
+// 1. Спочатку оголошуємо змінні оточення
+const MONO_TOKEN = process.env.MONO_TOKEN;
+const SECRET_KEY = process.env.SECRET_KEY;
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const FINANCE_TOKEN = process.env.TELEGRAM_FINANCE_TOKEN;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const DOMAIN = 'fop-app-02d3.onrender.com';
+const ALLOWED_USERS = process.env.ALLOWED_USERS ? process.env.ALLOWED_USERS.split(',').map(id => parseInt(id)) : [];
+
+// 2. Ініціалізуємо додаток та базу
 const app = express();
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '')));
 
-const MONO_TOKEN = process.env.MONO_TOKEN;
-const SECRET_KEY = process.env.SECRET_KEY;
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// 3. Ініціалізуємо ботів (якщо токени є)
+const bot = TELEGRAM_TOKEN ? new Telegraf(TELEGRAM_TOKEN) : null;
+const finBot = FINANCE_TOKEN ? new Telegraf(FINANCE_TOKEN) : null;
 
-// Нові токени та ID
-const FINANCE_TOKEN = process.env.TELEGRAM_FINANCE_TOKEN;
-const ALLOWED_USERS = process.env.ALLOWED_USERS ? process.env.ALLOWED_USERS.split(',').map(id => parseInt(id)) : [];
+// 4. Налаштовуємо вебхуки
+if (bot) {
+    const carWebhookPath = `/telegraf/${TELEGRAM_TOKEN}`;
+    app.use(bot.webhookCallback(carWebhookPath));
+    bot.telegram.deleteWebhook().then(() => {
+        bot.telegram.setWebhook(`https://${DOMAIN}${carWebhookPath}`);
+    }).catch(err => console.error('Car Bot Webhook Error:', err));
+}
+
+if (finBot) {
+    const finWebhookPath = `/telegraf/${FINANCE_TOKEN}`;
+    app.use(finBot.webhookCallback(finWebhookPath));
+    finBot.telegram.deleteWebhook().then(() => {
+        finBot.telegram.setWebhook(`https://${DOMAIN}${finWebhookPath}`);
+    }).catch(err => console.error('Finance Bot Webhook Error:', err));
+}
+
+// 5. Запуск сервера (один раз!)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`✅ Webhooks are being set via Express middleware`);
+});
 
 // Константи категорій згідно з твоєю логікою
 const CATEGORIES = {
@@ -56,7 +86,7 @@ async function saveCarData(entry) {
         amount: entry.amount,
         odo: entry.odo,
         liters: entry.liters,
-        priceattime: entry.priceAtTime // Мапимо JS-об'єкт на колонку priceattime
+        priceattime: entry.priceAtTime // Тут JS бере значення з об'єкта і кладе в колонку priceattime
     };
 
     const { error } = await supabase
@@ -67,7 +97,6 @@ async function saveCarData(entry) {
         console.error('Supabase insert error:', error);
     }
 }
-
 async function saveMaintenanceData(entry) {
     const dbEntry = {
         date: entry.date,
@@ -86,8 +115,6 @@ async function saveMaintenanceData(entry) {
 
 // ── Логіка Telegram Бота ──
 if (TELEGRAM_TOKEN) {
-    const bot = new Telegraf(TELEGRAM_TOKEN);
-
     // Створюємо постійну кнопку під полем вводу
     const mainKeyboard = {
         reply_markup: {
@@ -280,14 +307,9 @@ if (TELEGRAM_TOKEN) {
             );
         }
     });
-
-    bot.launch()
-        .then(() => console.log('Telegram Bot started with Supabase and Keyboard support'))
-        .catch(err => console.error('Bot launch error:', err));
 }
 
 if (FINANCE_TOKEN) {
-    const finBot = new Telegraf(FINANCE_TOKEN);
     finBot.use(session());
 
     // --- 1. Middleware Безпеки ---
@@ -324,9 +346,9 @@ if (FINANCE_TOKEN) {
             if (category === 'Долари') currency = 'USD';
             if (category === 'Євро') currency = 'EUR';
             await supabase.from('family_finances').insert([{
-                user_id: ctx.from.id, type, category, amount, currency: 'UAH'
+                user_id: ctx.from.id, type, category, amount, currency
             }]);
-            await ctx.reply(`✅ Записано: ${category} ${amount} грн`);
+            await ctx.reply(`✅ Записано: ${category} ${amount} ${currency}`);
             return exitScene(ctx);
         }
     );
@@ -450,6 +472,7 @@ if (FINANCE_TOKEN) {
     // --- 5. Швидкий текстовий ввід ---
     // --- 5. Швидкий текстовий ввід (Оновлений) ---
 finBot.on('text', async (ctx, next) => {
+    if (ctx.scene && ctx.scene.current) return next();
     const text = ctx.message.text.trim();
     // Регулярка для формату "Категорія Сума"
     const match = text.match(/^([А-Яа-яіІєЄґҐa-zA-Z]+)\s+(\d+(?:[.,]\d+)?)$/u);
@@ -485,7 +508,6 @@ finBot.on('text', async (ctx, next) => {
     ctx.reply(`✅ Швидкий запис: ${category} ${amount} ${currency}`);
 });
 
-    finBot.launch().then(() => console.log('Finance Bot started'));
 }
 // ── Допоміжні функції Mono/NBU ──
 const nbuRateCache = {};
@@ -589,6 +611,3 @@ app.get('/quarter-income', async (req, res) => {
 app.get('/car', (req, res) => {
     res.sendFile(path.join(__dirname, 'car.html'));
 });
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
