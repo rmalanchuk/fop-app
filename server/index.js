@@ -24,6 +24,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '')));
 
+// Публічний маршрут для Cron-job.org, щоб сервер не спав
+app.get('/ping', (req, res) => {
+    console.log('📡 Ping received: Keep-alive tick');
+    res.send('Safe and Sound');
+});
+
 // 3. Ініціалізуємо ботів (якщо токени є)
 const bot = TELEGRAM_TOKEN ? new Telegraf(TELEGRAM_TOKEN) : null;
 const finBot = FINANCE_TOKEN ? new Telegraf(FINANCE_TOKEN) : null;
