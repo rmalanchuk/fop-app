@@ -6,100 +6,112 @@
     <title>Family Finance Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f1f5f9; color: #1e293b; font-family: 'Inter', sans-serif; }
-        .card { background: #ffffff; border-radius: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
-        .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; font-weight: 700; }
+        body { background-color: #f8fafc; color: #1e293b; font-family: 'Inter', sans-serif; }
+        .card { background: #ffffff; border-radius: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #f1f5f9; }
+        .tab-active { color: #3b82f6; position: relative; }
+        .tab-active::after { content: ''; position: absolute; bottom: 0; left: 25%; width: 50%; height: 3px; background: #3b82f6; border-radius: 3px; }
+        
+        /* Кольорові індикатори зліва */
+        .income-op { border-left: 4px solid #10b981; }   /* Зелений */
+        .expense-op { border-left: 4px solid #ef4444; }  /* Червоний */
+        .savings-op { border-left: 4px solid #3b82f6; }  /* Синій */
+        
         details summary::-webkit-details-marker { display: none; }
-        .safe-card { transition: transform 0.2s; }
-        .safe-card:active { transform: scale(0.95); }
+        .animate-fade { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="p-4 pb-20 max-w-lg mx-auto">
 
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex justify-between items-center mb-8 pt-2">
         <div>
-            <h1 class="text-2xl font-bold text-slate-900">Family Finance</h1>
-            <p class="text-xs text-slate-500">Керування капіталом</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Family Finance</h1>
+            <p class="text-xs font-medium text-slate-400">Аналітика та капітал</p>
         </div>
-        <div id="status" class="text-[10px] font-bold bg-green-100 text-green-600 px-3 py-1 rounded-full uppercase tracking-wider">Live</div>
-    </div>
-
-    <div class="flex border-b border-slate-200 mb-6 sticky top-0 bg-[#f1f5f9]/80 backdrop-blur-md z-10">
-        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-4 text-sm tab-active">Dashboard</button>
-        <button onclick="switchTab('archive')" id="tab-archive" class="flex-1 py-4 text-sm text-slate-400">Аналітика</button>
-    </div>
-
-    <div id="content-dashboard">
-        <div class="grid grid-cols-3 gap-3 mb-8">
-            <div class="card safe-card p-4 text-center">
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">UAH</p>
-                <p id="safe-uah" class="text-md font-bold text-slate-800">0</p>
-            </div>
-            <div class="card safe-card p-4 text-center">
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">USD</p>
-                <p id="safe-usd" class="text-md font-bold text-slate-800">0</p>
-            </div>
-            <div class="card safe-card p-4 text-center">
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">EUR</p>
-                <p id="safe-eur" class="text-md font-bold text-slate-800">0</p>
-            </div>
-        </div>
-
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-slate-800">Останні операції</h2>
-            <span class="text-xs text-blue-500 font-semibold">Всі</span>
-        </div>
-        <div id="journal" class="space-y-3 text-slate-700">
-            <div class="text-center py-10 text-slate-400">Завантаження даних...</div>
+        <div id="status-icon" class="h-10 w-10 bg-white rounded-full border border-slate-200 flex items-center justify-center shadow-sm">
+            <span class="text-lg">💰</span>
         </div>
     </div>
 
-    <div id="content-archive" class="hidden">
-        <div class="flex items-center justify-between mb-6 bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
-            <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-full text-blue-500 font-bold">◀</button>
-            <span id="current-month-display" class="font-bold text-slate-700 uppercase tracking-tight">Квітень 2026</span>
-            <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-full text-blue-500 font-bold">▶</button>
+    <div class="flex mb-8 bg-white p-1 rounded-2xl shadow-sm border border-slate-100 sticky top-4 z-50">
+        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-3 text-sm font-semibold transition-all tab-active">Головна</button>
+        <button onclick="switchTab('archive')" id="tab-archive" class="flex-1 py-3 text-sm font-semibold text-slate-400 transition-all">Аналітика</button>
+    </div>
+
+    <div id="content-dashboard" class="animate-fade">
+        <div class="grid grid-cols-3 gap-3 mb-10">
+            <div class="card p-4 text-center bg-gradient-to-b from-white to-slate-50">
+                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">₴ UAH</p>
+                <p id="safe-uah" class="text-sm font-bold text-slate-800">0</p>
+            </div>
+            <div class="card p-4 text-center bg-gradient-to-b from-white to-slate-50">
+                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">$ USD</p>
+                <p id="safe-usd" class="text-sm font-bold text-slate-800">0</p>
+            </div>
+            <div class="card p-4 text-center bg-gradient-to-b from-white to-slate-50">
+                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">€ EUR</p>
+                <p id="safe-eur" class="text-sm font-bold text-slate-800">0</p>
+            </div>
         </div>
 
-        <div class="card p-5 mb-6">
-            <h3 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Витрати по тижнях (UAH)</h3>
+        <div class="flex items-center justify-between mb-5 px-1">
+            <h2 class="text-lg font-bold text-slate-800">Останні дії</h2>
+            <button onclick="switchTab('archive')" class="text-xs text-blue-600 font-bold hover:bg-blue-100 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">Всі операції ➔</button>
+        </div>
+        
+        <div id="journal" class="space-y-3">
+            <div class="text-center py-10 text-slate-400 animate-pulse text-sm">Завантаження...</div>
+        </div>
+    </div>
+
+    <div id="content-archive" class="hidden animate-fade">
+        <div class="flex items-center justify-between mb-6 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+            <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-blue-500 transition-colors">◀</button>
+            <span id="current-month-display" class="font-bold text-slate-700 uppercase text-[11px] tracking-widest">Квітень 2026</span>
+            <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-blue-500 transition-colors">▶</button>
+        </div>
+
+        <div class="card p-6 mb-6">
+            <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-6 tracking-widest flex items-center">
+                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Динаміка витрат (UAH)
+            </h3>
             <canvas id="weeklyChart" height="180"></canvas>
         </div>
 
-        <div class="space-y-3" id="monthly-stats">
-            <details class="card transition-all duration-300">
+        <div class="space-y-4" id="monthly-stats">
+            <details class="card group">
                 <summary class="p-5 flex justify-between items-center cursor-pointer list-none">
                     <div class="flex items-center">
-                        <div class="w-8 h-8 bg-red-50 rounded-full flex items-center justify-center mr-3 text-red-500 text-sm">💸</div>
-                        <span class="font-bold text-slate-700">Витрати</span>
+                        <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mr-4 text-red-500">💸</div>
+                        <span class="font-bold text-slate-700 text-sm">Витрати</span>
                     </div>
-                    <span id="total-exp" class="font-bold text-slate-900">0 UAH</span>
+                    <span id="total-exp" class="font-bold text-red-600">0 ₴</span>
                 </summary>
-                <div id="details-exp" class="px-5 pb-5 pt-2 text-sm text-slate-600 space-y-3 border-t border-slate-50 mt-2"></div>
+                <div id="details-exp" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div>
             </details>
 
-            <details class="card">
+            <details class="card group">
                 <summary class="p-5 flex justify-between items-center cursor-pointer list-none">
                     <div class="flex items-center">
-                        <div class="w-8 h-8 bg-green-50 rounded-full flex items-center justify-center mr-3 text-green-500 text-sm">💰</div>
-                        <span class="font-bold text-slate-700">Доходи</span>
+                        <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center mr-4 text-green-500">💰</div>
+                        <span class="font-bold text-slate-700 text-sm">Доходи</span>
                     </div>
-                    <span id="total-inc" class="font-bold text-slate-900">0 UAH</span>
+                    <span id="total-inc" class="font-bold text-green-600">0 ₴</span>
                 </summary>
-                <div id="details-inc" class="px-5 pb-5 pt-2 text-sm text-slate-600 space-y-3 border-t border-slate-50 mt-2"></div>
+                <div id="details-inc" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div>
             </details>
 
-            <details class="card">
+            <details class="card group">
                 <summary class="p-5 flex justify-between items-center cursor-pointer list-none">
                     <div class="flex items-center">
-                        <div class="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center mr-3 text-blue-500 text-sm">🏦</div>
-                        <span class="font-bold text-slate-700">Заощадження</span>
+                        <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mr-4 text-blue-500">🏦</div>
+                        <span class="font-bold text-slate-700 text-sm">Капітал</span>
                     </div>
-                    <span class="text-xs font-bold text-blue-400 uppercase">Показати</span>
+                    <span class="text-[9px] font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded uppercase">Склад</span>
                 </summary>
-                <div id="details-sav" class="px-5 pb-5 pt-2 text-sm text-slate-600 space-y-3 border-t border-slate-50 mt-2"></div>
+                <div id="details-sav" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div>
             </details>
         </div>
     </div>
@@ -109,70 +121,86 @@
         const SECRET_KEY = urlParams.get('key');
         let allData = [];
         let currentViewDate = new Date();
+        let myChart;
 
         function switchTab(tab) {
             document.getElementById('content-dashboard').classList.toggle('hidden', tab !== 'dashboard');
             document.getElementById('content-archive').classList.toggle('hidden', tab !== 'archive');
-            document.getElementById('tab-dashboard').className = `flex-1 py-4 text-sm ${tab === 'dashboard' ? 'tab-active' : 'text-slate-400'}`;
-            document.getElementById('tab-archive').className = `flex-1 py-4 text-sm ${tab === 'archive' ? 'tab-active' : 'text-slate-400'}`;
+            
+            document.getElementById('tab-dashboard').className = `flex-1 py-3 text-sm font-semibold transition-all ${tab === 'dashboard' ? 'tab-active' : 'text-slate-400'}`;
+            document.getElementById('tab-archive').className = `flex-1 py-3 text-sm font-semibold transition-all ${tab === 'archive' ? 'tab-active' : 'text-slate-400'}`;
+            
             if (tab === 'archive') renderArchive();
         }
 
         async function fetchData() {
             if (!SECRET_KEY) {
-                document.body.innerHTML = "<div class='text-center py-20 text-slate-400'>❌ Потрібен секретний ключ доступу</div>";
+                document.body.innerHTML = "<div class='text-center py-20 text-slate-400'>❌ Ключ не знайдено в URL (?key=...)</div>";
                 return;
             }
             try {
-                // Вказуємо ПОВНУ адресу твого сервера на Render
                 const res = await fetch(`https://fop-app-02d3.onrender.com/api/dashboard?key=${SECRET_KEY}`);
-                
-                if (!res.ok) throw new Error(`Помилка сервера: ${res.status}`);
-            
+                if (!res.ok) throw new Error("Помилка сервера");
                 const data = await res.json();
                 allData = data.history || [];
                 renderDashboard(data);
-            } catch (e) { 
-                console.error("Помилка завантаження даних:", e); 
+            } catch (e) {
+                console.error(e);
+                document.getElementById('journal').innerHTML = `<p class='text-center py-10 text-red-400 text-xs font-bold'>⚠️ Помилка з'єднання з Render</p>`;
             }
-        } // <--- ОСЬ ЦЯ ДУЖКА БУЛА ПРОПУЩЕНА
+        }
 
         function renderDashboard(data) {
-            // Перевірка на випадок порожніх даних
-            const uah = data.safe?.UAH || 0;
-            const usd = data.safe?.USD || 0;
-            const eur = data.safe?.EUR || 0;
-
-            document.getElementById('safe-uah').innerText = uah.toLocaleString() + ' ₴';
-            document.getElementById('safe-usd').innerText = usd.toLocaleString() + ' $';
-            document.getElementById('safe-eur').innerText = eur.toLocaleString() + ' €';
+            document.getElementById('safe-uah').innerText = (data.safe?.UAH || 0).toLocaleString() + ' ₴';
+            document.getElementById('safe-usd').innerText = (data.safe?.USD || 0).toLocaleString() + ' $';
+            document.getElementById('safe-eur').innerText = (data.safe?.EUR || 0).toLocaleString() + ' €';
 
             const journal = document.getElementById('journal');
-            journal.innerHTML = (data.history || []).map(t => {
-                const isInc = t.type === 'Доходи' || t.type === 'Заощадження';
-                const sign = isInc ? '+' : '-';
-                const color = t.type === 'Доходи' ? 'text-green-600' : (t.is_from_savings ? 'text-blue-500' : 'text-slate-900');
+            // Обмежуємо 5 транзакціями для головної
+            const latest = (data.history || []).slice(0, 5);
+            
+            journal.innerHTML = latest.map(t => {
+                const isInc = t.type === 'Доходи';
+                const isSav = t.type === 'Заощадження';
+                const sign = isInc || (isSav && t.amount > 0) ? '+' : '-';
+                
+                let typeClass = 'expense-op';
+                let icon = '🛒';
+                let iconBg = 'bg-red-50 text-red-500';
+                let textColor = 'text-red-600';
+
+                if (isInc) {
+                    typeClass = 'income-op';
+                    icon = '💰';
+                    iconBg = 'bg-green-50 text-green-600';
+                    textColor = 'text-green-600';
+                } else if (isSav) {
+                    typeClass = 'savings-op';
+                    icon = '🏦';
+                    iconBg = 'bg-blue-50 text-blue-600';
+                    textColor = 'text-blue-600';
+                }
+
                 return `
-                    <div class="card p-4 flex justify-between items-center">
+                    <div class="card p-4 flex justify-between items-center ${typeClass}">
                         <div class="flex items-center">
-                            <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-xl mr-4 shadow-sm border border-slate-100">
-                                ${t.type === 'Доходи' ? '💰' : (t.type === 'Заощадження' ? '🏦' : '🛒')}
+                            <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center text-lg mr-4 shadow-sm border border-white/50">
+                                ${icon}
                             </div>
                             <div>
-                                <p class="font-bold text-slate-800 leading-none mb-1">${t.category}</p>
-                                <p class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p>
+                                <p class="font-bold text-slate-800 text-sm leading-tight">${t.category}</p>
+                                <p class="text-[10px] text-slate-400 font-medium">${new Date(t.created_at).toLocaleDateString('uk-UA')}</p>
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="font-extrabold ${color}">${sign}${t.amount} ${t.currency}</p>
-                            ${t.is_from_savings ? '<p class="text-[8px] font-bold text-blue-400 uppercase">З капіталу</p>' : ''}
+                            <p class="font-bold ${textColor} text-sm">${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}</p>
+                            ${t.is_from_savings ? '<p class="text-[8px] font-extrabold text-blue-400 uppercase tracking-tighter">З капіталу</p>' : ''}
                         </div>
                     </div>
                 `;
-            }).join('');
+            }).join('') || '<p class="text-center text-slate-400 text-sm py-10">Транзакцій поки немає</p>';
         }
 
-        let myChart;
         function renderArchive() {
             const year = currentViewDate.getFullYear();
             const month = currentViewDate.getMonth();
@@ -185,13 +213,14 @@
 
             const stats = { exp: {}, inc: {}, sav: {}, totalExp: 0, totalInc: 0 };
             filtered.forEach(t => {
+                const amt = Math.abs(t.amount);
                 if (t.type === 'Витрати' && t.currency === 'UAH') {
-                    stats.totalExp += t.amount;
-                    stats.exp[t.category] = (stats.exp[t.category] || 0) + t.amount;
+                    stats.totalExp += amt;
+                    stats.exp[t.category] = (stats.exp[t.category] || 0) + amt;
                 }
                 if (t.type === 'Доходи' && t.currency === 'UAH') {
-                    stats.totalInc += t.amount;
-                    stats.inc[t.category] = (stats.inc[t.category] || 0) + t.amount;
+                    stats.totalInc += amt;
+                    stats.inc[t.category] = (stats.inc[t.category] || 0) + amt;
                 }
                 if (t.type === 'Заощадження') {
                     stats.sav[t.category] = (stats.sav[t.category] || 0) + t.amount;
@@ -201,18 +230,21 @@
             document.getElementById('total-exp').innerText = `${stats.totalExp.toLocaleString()} ₴`;
             document.getElementById('total-inc').innerText = `${stats.totalInc.toLocaleString()} ₴`;
             
-            document.getElementById('details-exp').innerHTML = Object.entries(stats.exp).map(([c, s]) => `<div class="flex justify-between font-medium"><span>${c}</span><span>${s.toLocaleString()} ₴</span></div>`).join('');
-            document.getElementById('details-inc').innerHTML = Object.entries(stats.inc).map(([c, s]) => `<div class="flex justify-between font-medium"><span>${c}</span><span>${s.toLocaleString()} ₴</span></div>`).join('');
-            document.getElementById('details-sav').innerHTML = Object.entries(stats.sav).map(([c, s]) => `<div class="flex justify-between font-medium"><span>${c}</span><span>${s.toLocaleString()}</span></div>`).join('');
+            const mapper = ([c, s]) => `<div class="flex justify-between items-center py-2 border-b border-slate-50 last:border-0 font-medium text-slate-600"><span>${c}</span><span class="text-slate-900">${s.toLocaleString()} ₴</span></div>`;
+            
+            document.getElementById('details-exp').innerHTML = Object.entries(stats.exp).map(mapper).join('') || 'Немає витрат за цей місяць';
+            document.getElementById('details-inc').innerHTML = Object.entries(stats.inc).map(mapper).join('') || 'Немає доходів за цей місяць';
+            document.getElementById('details-sav').innerHTML = Object.entries(stats.sav).map(([c, s]) => `<div class="flex justify-between py-2 border-b border-slate-50 last:border-0"><span>${c}</span><span class="font-bold text-blue-600">${s > 0 ? '+' : ''}${s.toLocaleString()}</span></div>`).join('') || 'Руху капіталу не було';
 
             updateChart(filtered);
         }
 
         function updateChart(monthData) {
-            const chartEl = document.getElementById('weeklyChart');
-            if (!chartEl) return;
-            const ctx = chartEl.getContext('2d');
+            const chartCanvas = document.getElementById('weeklyChart');
+            if (!chartCanvas) return;
+            const ctx = chartCanvas.getContext('2d');
             const weeklyData = [0, 0, 0, 0, 0];
+            
             monthData.forEach(t => {
                 if (t.type === 'Витрати' && t.currency === 'UAH') {
                     const date = new Date(t.created_at);
@@ -226,11 +258,20 @@
                 type: 'bar',
                 data: {
                     labels: ['Тиж 1', 'Тиж 2', 'Тиж 3', 'Тиж 4', 'Тиж 5'],
-                    datasets: [{ data: weeklyData, backgroundColor: '#3b82f6', borderRadius: 10, barThickness: 25 }]
+                    datasets: [{ 
+                        data: weeklyData, 
+                        backgroundColor: '#3b82f6', 
+                        borderRadius: 6, 
+                        barThickness: 20,
+                        hoverBackgroundColor: '#2563eb'
+                    }]
                 },
                 options: { 
                     plugins: { legend: { display: false } }, 
-                    scales: { y: { display: false }, x: { grid: { display: false }, border: { display: false } } } 
+                    scales: { 
+                        y: { display: false }, 
+                        x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8' } } 
+                    } 
                 }
             });
         }
@@ -240,7 +281,7 @@
             renderArchive();
         }
 
-        // Запуск
+        // Автозапуск при відкритті
         fetchData();
     </script>
 </body>
