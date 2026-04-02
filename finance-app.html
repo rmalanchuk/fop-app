@@ -13,10 +13,9 @@
         .tab-active { color: #3b82f6; position: relative; }
         .tab-active::after { content: ''; position: absolute; bottom: 0; left: 25%; width: 50%; height: 3px; background: #3b82f6; border-radius: 3px; }
         
-        /* Кольорові індикатори зліва */
-        .income-op { border-left: 4px solid #10b981; }   /* Зелений */
-        .expense-op { border-left: 4px solid #ef4444; }  /* Червоний */
-        .savings-op { border-left: 4px solid #3b82f6; }  /* Синій */
+        .income-op { border-left: 4px solid #10b981; }
+        .expense-op { border-left: 4px solid #ef4444; }
+        .savings-op { border-left: 4px solid #3b82f6; }
         
         details summary::-webkit-details-marker { display: none; }
         .animate-fade { animation: fadeIn 0.3s ease-in-out; }
@@ -30,8 +29,8 @@
             <h1 class="text-2xl font-bold tracking-tight text-slate-900">Family Finance</h1>
             <p class="text-xs font-medium text-slate-400">Аналітика та капітал</p>
         </div>
-        <div id="status-icon" class="h-10 w-10 bg-white rounded-full border border-slate-200 flex items-center justify-center shadow-sm">
-            <span class="text-lg">💰</span>
+        <div class="h-10 px-3 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Live Sync</span>
         </div>
     </div>
 
@@ -41,36 +40,37 @@
     </div>
 
     <div id="content-dashboard" class="animate-fade">
+        <p class="text-[10px] font-bold text-slate-400 uppercase mb-3 px-1">Витрати за поточний місяць:</p>
         <div class="grid grid-cols-3 gap-3 mb-10">
-            <div class="card p-4 text-center bg-gradient-to-b from-white to-slate-50">
+            <div class="card p-4 text-center bg-gradient-to-b from-white to-red-50/30">
                 <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">₴ UAH</p>
-                <p id="safe-uah" class="text-sm font-bold text-slate-800">0</p>
+                <p id="safe-uah" class="text-sm font-bold text-red-600">0</p>
             </div>
-            <div class="card p-4 text-center bg-gradient-to-b from-white to-slate-50">
+            <div class="card p-4 text-center bg-gradient-to-b from-white to-red-50/30">
                 <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">$ USD</p>
-                <p id="safe-usd" class="text-sm font-bold text-slate-800">0</p>
+                <p id="safe-usd" class="text-sm font-bold text-red-600">0</p>
             </div>
-            <div class="card p-4 text-center bg-gradient-to-b from-white to-slate-50">
+            <div class="card p-4 text-center bg-gradient-to-b from-white to-red-50/30">
                 <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">€ EUR</p>
-                <p id="safe-eur" class="text-sm font-bold text-slate-800">0</p>
+                <p id="safe-eur" class="text-sm font-bold text-red-600">0</p>
             </div>
         </div>
 
         <div class="flex items-center justify-between mb-5 px-1">
-            <h2 class="text-lg font-bold text-slate-800">Останні дії</h2>
-            <button onclick="switchTab('archive')" class="text-xs text-blue-600 font-bold hover:bg-blue-100 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">Всі операції ➔</button>
+            <h2 class="text-lg font-bold text-slate-800">Операції</h2>
+            <button id="btn-show-all" onclick="renderDashboard(true)" class="text-xs text-blue-600 font-bold hover:bg-blue-100 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">Показати всі ➔</button>
         </div>
         
         <div id="journal" class="space-y-3">
-            <div class="text-center py-10 text-slate-400 animate-pulse text-sm">Завантаження...</div>
+            <div class="text-center py-10 text-slate-400 animate-pulse text-sm">Очікування авторизації...</div>
         </div>
     </div>
 
     <div id="content-archive" class="hidden animate-fade">
         <div class="flex items-center justify-between mb-6 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
-            <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-blue-500 transition-colors">◀</button>
+            <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-blue-500">◀</button>
             <span id="current-month-display" class="font-bold text-slate-700 uppercase text-[11px] tracking-widest">Квітень 2026</span>
-            <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-blue-500 transition-colors">▶</button>
+            <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-blue-500">▶</button>
         </div>
 
         <div class="card p-6 mb-6">
@@ -80,7 +80,7 @@
             <canvas id="weeklyChart" height="180"></canvas>
         </div>
 
-        <div class="space-y-4" id="monthly-stats">
+        <div class="space-y-4">
             <details class="card group">
                 <summary class="p-5 flex justify-between items-center cursor-pointer list-none">
                     <div class="flex items-center">
@@ -109,7 +109,7 @@
                         <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mr-4 text-blue-500">🏦</div>
                         <span class="font-bold text-slate-700 text-sm">Капітал</span>
                     </div>
-                    <span class="text-[9px] font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded uppercase">Склад</span>
+                    <span id="total-sav-sum" class="font-bold text-blue-600">0 ₴</span>
                 </summary>
                 <div id="details-sav" class="px-5 pb-5 pt-2 text-sm text-slate-500 space-y-3 border-t border-slate-50"></div>
             </details>
@@ -117,74 +117,84 @@
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const SECRET_KEY = urlParams.get('key');
         let allData = [];
         let currentViewDate = new Date();
         let myChart;
 
-        function switchTab(tab) {
-            document.getElementById('content-dashboard').classList.toggle('hidden', tab !== 'dashboard');
-            document.getElementById('content-archive').classList.toggle('hidden', tab !== 'archive');
-            
-            document.getElementById('tab-dashboard').className = `flex-1 py-3 text-sm font-semibold transition-all ${tab === 'dashboard' ? 'tab-active' : 'text-slate-400'}`;
-            document.getElementById('tab-archive').className = `flex-1 py-3 text-sm font-semibold transition-all ${tab === 'archive' ? 'tab-active' : 'text-slate-400'}`;
-            
-            if (tab === 'archive') renderArchive();
+        function getSecretKey() {
+            let key = sessionStorage.getItem('finance_key');
+            if (!key) {
+                key = prompt("Введіть секретний ключ для доступу:");
+                if (key) sessionStorage.setItem('finance_key', key);
+            }
+            return key;
         }
 
         async function fetchData() {
-            if (!SECRET_KEY) {
-                document.body.innerHTML = "<div class='text-center py-20 text-slate-400'>❌ Ключ не знайдено в URL (?key=...)</div>";
+            const key = getSecretKey();
+            if (!key) {
+                document.getElementById('journal').innerHTML = `<p class='text-center py-10 text-red-400 text-xs font-bold'>❌ Ключ обов'язковий</p>`;
                 return;
             }
             try {
-                const res = await fetch(`https://fop-app-02d3.onrender.com/api/dashboard?key=${SECRET_KEY}`);
-                if (!res.ok) throw new Error("Помилка сервера");
+                const res = await fetch(`https://fop-app-02d3.onrender.com/api/dashboard?key=${key}`);
+                if (!res.ok) throw new Error("Невірний ключ або помилка сервера");
                 const data = await res.json();
                 allData = data.history || [];
-                renderDashboard(data);
+                renderDashboard(false);
             } catch (e) {
-                console.error(e);
-                document.getElementById('journal').innerHTML = `<p class='text-center py-10 text-red-400 text-xs font-bold'>⚠️ Помилка з'єднання з Render</p>`;
+                sessionStorage.removeItem('finance_key');
+                alert(e.message);
+                location.reload();
             }
         }
 
-        function renderDashboard(data) {
-            document.getElementById('safe-uah').innerText = (data.safe?.UAH || 0).toLocaleString() + ' ₴';
-            document.getElementById('safe-usd').innerText = (data.safe?.USD || 0).toLocaleString() + ' $';
-            document.getElementById('safe-eur').innerText = (data.safe?.EUR || 0).toLocaleString() + ' €';
+        function switchTab(tab) {
+            document.getElementById('content-dashboard').classList.toggle('hidden', tab !== 'dashboard');
+            document.getElementById('content-archive').classList.toggle('hidden', tab !== 'archive');
+            document.getElementById('tab-dashboard').className = `flex-1 py-3 text-sm font-semibold transition-all ${tab === 'dashboard' ? 'tab-active' : 'text-slate-400'}`;
+            document.getElementById('tab-archive').className = `flex-1 py-3 text-sm font-semibold transition-all ${tab === 'archive' ? 'tab-active' : 'text-slate-400'}`;
+            if (tab === 'archive') renderArchive();
+        }
+
+        function renderDashboard(showAll = false) {
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            // Розрахунок витрат тільки за поточний місяць для верхніх блоків
+            const monthExpenses = allData.reduce((acc, t) => {
+                if (t.type === 'Витрати' && new Date(t.created_at) >= startOfMonth) {
+                    acc[t.currency] = (acc[t.currency] || 0) + Math.abs(t.amount);
+                }
+                return acc;
+            }, { UAH: 0, USD: 0, EUR: 0 });
+
+            document.getElementById('safe-uah').innerText = monthExpenses.UAH.toLocaleString() + ' ₴';
+            document.getElementById('safe-usd').innerText = monthExpenses.USD.toLocaleString() + ' $';
+            document.getElementById('safe-eur').innerText = monthExpenses.EUR.toLocaleString() + ' €';
+
+            if (showAll) document.getElementById('btn-show-all').classList.add('hidden');
 
             const journal = document.getElementById('journal');
-            // Обмежуємо 5 транзакціями для головної
-            const latest = (data.history || []).slice(0, 5);
+            const displayData = showAll ? allData : allData.slice(0, 5);
             
-            journal.innerHTML = latest.map(t => {
+            journal.innerHTML = displayData.map(t => {
                 const isInc = t.type === 'Доходи';
                 const isSav = t.type === 'Заощадження';
                 const sign = isInc || (isSav && t.amount > 0) ? '+' : '-';
                 
-                let typeClass = 'expense-op';
-                let icon = '🛒';
-                let iconBg = 'bg-red-50 text-red-500';
-                let textColor = 'text-red-600';
+                let typeClass = 'expense-op', icon = '🛒', iconBg = 'bg-red-50 text-red-500', textColor = 'text-red-600';
 
                 if (isInc) {
-                    typeClass = 'income-op';
-                    icon = '💰';
-                    iconBg = 'bg-green-50 text-green-600';
-                    textColor = 'text-green-600';
+                    typeClass = 'income-op'; icon = '💰'; iconBg = 'bg-green-50 text-green-600'; textColor = 'text-green-600';
                 } else if (isSav) {
-                    typeClass = 'savings-op';
-                    icon = '🏦';
-                    iconBg = 'bg-blue-50 text-blue-600';
-                    textColor = 'text-blue-600';
+                    typeClass = 'savings-op'; icon = '🏦'; iconBg = 'bg-blue-50 text-blue-600'; textColor = 'text-blue-600';
                 }
 
                 return `
                     <div class="card p-4 flex justify-between items-center ${typeClass}">
                         <div class="flex items-center">
-                            <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center text-lg mr-4 shadow-sm border border-white/50">
+                            <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center text-lg mr-4 shadow-sm">
                                 ${icon}
                             </div>
                             <div>
@@ -193,12 +203,15 @@
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="font-bold ${textColor} text-sm">${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}</p>
-                            ${t.is_from_savings ? '<p class="text-[8px] font-extrabold text-blue-400 uppercase tracking-tighter">З капіталу</p>' : ''}
+                            <div class="flex items-center justify-end gap-1">
+                                ${t.is_from_savings ? '<span title="З капіталу" class="text-xs">🛡️</span>' : ''}
+                                <p class="font-bold ${textColor} text-sm">${sign}${Math.abs(t.amount).toLocaleString()} ${t.currency}</p>
+                            </div>
+                            ${t.is_from_savings ? '<p class="text-[7px] font-black text-blue-500 uppercase">З капіталу</p>' : ''}
                         </div>
                     </div>
                 `;
-            }).join('') || '<p class="text-center text-slate-400 text-sm py-10">Транзакцій поки немає</p>';
+            }).join('');
         }
 
         function renderArchive() {
@@ -211,45 +224,44 @@
                 return d.getFullYear() === year && d.getMonth() === month;
             });
 
-            const stats = { exp: {}, inc: {}, sav: {}, totalExp: 0, totalInc: 0 };
+            const stats = { exp: {}, inc: {}, sav: {}, totalExp: 0, totalInc: 0, totalSav: 0 };
             filtered.forEach(t => {
                 const amt = Math.abs(t.amount);
                 if (t.type === 'Витрати' && t.currency === 'UAH') {
                     stats.totalExp += amt;
                     stats.exp[t.category] = (stats.exp[t.category] || 0) + amt;
-                }
-                if (t.type === 'Доходи' && t.currency === 'UAH') {
+                } else if (t.type === 'Доходи' && t.currency === 'UAH') {
                     stats.totalInc += amt;
                     stats.inc[t.category] = (stats.inc[t.category] || 0) + amt;
-                }
-                if (t.type === 'Заощадження') {
+                } else if (t.type === 'Заощадження' && t.currency === 'UAH') {
+                    stats.totalSav += t.amount;
                     stats.sav[t.category] = (stats.sav[t.category] || 0) + t.amount;
                 }
             });
 
             document.getElementById('total-exp').innerText = `${stats.totalExp.toLocaleString()} ₴`;
             document.getElementById('total-inc').innerText = `${stats.totalInc.toLocaleString()} ₴`;
+            document.getElementById('total-sav-sum').innerText = `${stats.totalSav.toLocaleString()} ₴`;
             
             const mapper = ([c, s]) => `<div class="flex justify-between items-center py-2 border-b border-slate-50 last:border-0 font-medium text-slate-600"><span>${c}</span><span class="text-slate-900">${s.toLocaleString()} ₴</span></div>`;
             
-            document.getElementById('details-exp').innerHTML = Object.entries(stats.exp).map(mapper).join('') || 'Немає витрат за цей місяць';
-            document.getElementById('details-inc').innerHTML = Object.entries(stats.inc).map(mapper).join('') || 'Немає доходів за цей місяць';
-            document.getElementById('details-sav').innerHTML = Object.entries(stats.sav).map(([c, s]) => `<div class="flex justify-between py-2 border-b border-slate-50 last:border-0"><span>${c}</span><span class="font-bold text-blue-600">${s > 0 ? '+' : ''}${s.toLocaleString()}</span></div>`).join('') || 'Руху капіталу не було';
+            document.getElementById('details-exp').innerHTML = Object.entries(stats.exp).map(mapper).join('') || 'Порожньо';
+            document.getElementById('details-inc').innerHTML = Object.entries(stats.inc).map(mapper).join('') || 'Порожньо';
+            document.getElementById('details-sav').innerHTML = Object.entries(stats.sav).map(([c, s]) => `<div class="flex justify-between py-2 border-b border-slate-50 last:border-0"><span>${c}</span><span class="font-bold ${s >= 0 ? 'text-green-600' : 'text-red-600'}">${s > 0 ? '+' : ''}${s.toLocaleString()} ₴</span></div>`).join('') || 'Без змін';
 
             updateChart(filtered);
         }
 
         function updateChart(monthData) {
-            const chartCanvas = document.getElementById('weeklyChart');
-            if (!chartCanvas) return;
-            const ctx = chartCanvas.getContext('2d');
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
             const weeklyData = [0, 0, 0, 0, 0];
             
             monthData.forEach(t => {
+                // Тільки Витрати в UAH, які НЕ є Заощадженнями
                 if (t.type === 'Витрати' && t.currency === 'UAH') {
                     const date = new Date(t.created_at);
-                    const weekNum = Math.ceil((date.getDate() + new Date(date.getFullYear(), date.getMonth(), 1).getDay() - 1) / 7);
-                    if(weekNum <= 5) weeklyData[weekNum-1] += t.amount;
+                    const weekNum = Math.ceil(date.getDate() / 7);
+                    if(weekNum <= 5) weeklyData[weekNum-1] += Math.abs(t.amount);
                 }
             });
 
@@ -258,31 +270,8 @@
                 type: 'bar',
                 data: {
                     labels: ['Тиж 1', 'Тиж 2', 'Тиж 3', 'Тиж 4', 'Тиж 5'],
-                    datasets: [{ 
-                        data: weeklyData, 
-                        backgroundColor: '#3b82f6', 
-                        borderRadius: 6, 
-                        barThickness: 20,
-                        hoverBackgroundColor: '#2563eb'
-                    }]
+                    datasets: [{ data: weeklyData, backgroundColor: '#3b82f6', borderRadius: 6, barThickness: 20 }]
                 },
                 options: { 
                     plugins: { legend: { display: false } }, 
-                    scales: { 
-                        y: { display: false }, 
-                        x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8' } } 
-                    } 
-                }
-            });
-        }
-
-        function changeMonth(step) {
-            currentViewDate.setMonth(currentViewDate.getMonth() + step);
-            renderArchive();
-        }
-
-        // Автозапуск при відкритті
-        fetchData();
-    </script>
-</body>
-</html>
+                    scales: { y: { display: false }, x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8' } } }
