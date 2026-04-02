@@ -479,11 +479,39 @@ if (FINANCE_TOKEN) {
     });
 
     // Обробка натискання Inline-кнопок
+    // Обробка натискання Inline-кнопки "ТАК, ВИДАЛИТИ"
     finBot.action(/^delete_(.+)$/, async (ctx) => {
         const recordId = ctx.match[1];
-        await supabase.from('family_finances').delete().eq('id', recordId);
-        await ctx.answerCbQuery('Видалено!');
-        await ctx.editMessageText('✅ Запис успішно видалено.');
+        
+        // Спочатку дістаємо дані, які збираємось видалити, щоб показати їх у звіті
+        const { data: record, error: fetchError } = await supabase
+            .from('family_finances')
+            .select('*')
+            .eq('id', recordId)
+            .single();
+
+        if (record) {
+            const { error: deleteError } = await supabase
+                .from('family_finances')
+                .delete()
+                .eq('id', recordId);
+            
+            if (!deleteError) {
+                await ctx.answerCbQuery('Видалено!');
+                // Тепер бот редагує повідомлення і пише, що саме було видалено
+                await ctx.editMessageText(
+                    `✅ **Успішно видалено:**\n\n` +
+                    `📂 ${record.category}: ${record.amount} ${record.currency}\n` +
+                    `🗑 Запис стерто з бази.`
+                , { parse_mode: 'Markdown' });
+            } else {
+                await ctx.answerCbQuery('Помилка видалення');
+                await ctx.reply('Сталася помилка при видаленні з Supabase.');
+            }
+        } else {
+            await ctx.answerCbQuery('Запис не знайдено');
+            await ctx.editMessageText('⚠️ Не вдалося знайти запис для видалення (можливо, він уже видалений).');
+        }
     });
 
     finBot.action('cancel_delete', async (ctx) => {
