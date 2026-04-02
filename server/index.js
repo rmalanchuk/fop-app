@@ -664,6 +664,53 @@ app.get('/quarter-income', async (req, res) => {
     } catch (e) { res.status(500).send(e.message); }
 });
 
+// ── API для Finance App ──
+app.get('/api/dashboard', async (req, res) => {
+    // Перевірка ключа (безпека)
+    const key = req.query.key;
+    if (key !== SECRET_KEY) {
+        console.error('Finance API: Auth failed');
+        return res.status(401).send('Unauthorized');
+    }
+
+    try {
+        // 1. Отримуємо всю історію операцій
+        const { data: history, error } = await supabase
+            .from('family_finances')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // 2. Рахуємо залишки в сейфі
+        // Логіка: Поповнення (тип Заощадження) мінус витрати з міткою is_from_savings
+        const safe = { UAH: 0, USD: 0, EUR: 0 };
+        
+        history.forEach(t => {
+            if (t.type === 'Заощадження') {
+                safe[t.currency] += t.amount;
+            }
+            if (t.is_from_savings) {
+                safe[t.currency] -= t.amount;
+            }
+        });
+
+        // 3. Віддаємо JSON (саме те, що чекає фронтенд)
+        res.json({
+            safe: {
+                UAH: Math.round(safe.UAH),
+                USD: Math.round(safe.USD),
+                EUR: Math.round(safe.EUR)
+            },
+            history: history
+        });
+
+    } catch (e) {
+        console.error('Finance API Error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/car', (req, res) => {
     res.sendFile(path.join(__dirname, 'car.html'));
 });
