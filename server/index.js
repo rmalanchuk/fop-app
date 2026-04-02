@@ -28,6 +28,16 @@ app.use(express.static(path.join(__dirname, '')));
 const bot = TELEGRAM_TOKEN ? new Telegraf(TELEGRAM_TOKEN) : null;
 const finBot = FINANCE_TOKEN ? new Telegraf(FINANCE_TOKEN) : null;
 
+// --- БЛОК БЕЗПЕКИ (WHITELIST) ---
+const authMiddleware = (ctx, next) => {
+    if (ctx.from && ALLOWED_USERS.includes(ctx.from.id)) return next();
+    console.log(`🚫 Спроба доступу відхилена для ID: ${ctx.from?.id}`);
+};
+
+if (bot) bot.use(authMiddleware);
+if (finBot) finBot.use(authMiddleware);
+// --------------------------------
+
 // 4. Налаштовуємо вебхуки
 if (bot) {
     const carWebhookPath = `/telegraf/${TELEGRAM_TOKEN}`;
@@ -311,13 +321,6 @@ if (TELEGRAM_TOKEN) {
 
 if (FINANCE_TOKEN) {
     finBot.use(session());
-
-    // --- 1. Middleware Безпеки ---
-    finBot.use((ctx, next) => {
-        if (ctx.from && ALLOWED_USERS.includes(ctx.from.id)) return next();
-        console.log(`Unauthorized access: ${ctx.from?.id}`);
-    });
-
     // --- 2. Сцени (Wizard Scenes) ---
 
     // Сцена для звичайних витрат/доходів
@@ -456,11 +459,36 @@ if (FINANCE_TOKEN) {
 
         if (data && data.length > 0) {
             const last = data[0];
-            await supabase.from('family_finances').delete().eq('id', last.id);
-            ctx.reply(`🗑 Видалено останній запис: ${last.category} - ${last.amount} ${last.currency}`);
+            const msg = `❓ **Видалити цей запис?**\n\n` +
+                        `📂 ${last.category}: ${last.amount} ${last.currency}\n` +
+                        `📅 ${new Date(last.created_at).toLocaleString('uk-UA')}`;
+            
+            await ctx.replyWithMarkdown(msg, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: '🔥 Так, видалити', callback_data: `delete_${last.id}` },
+                            { text: '❌ Ні, лишити', callback_data: 'cancel_delete' }
+                        ]
+                    ]
+                }
+            });
         } else {
             ctx.reply('Записів не знайдено.');
         }
+    });
+
+    // Обробка натискання Inline-кнопок
+    finBot.action(/^delete_(.+)$/, async (ctx) => {
+        const recordId = ctx.match[1];
+        await supabase.from('family_finances').delete().eq('id', recordId);
+        await ctx.answerCbQuery('Видалено!');
+        await ctx.editMessageText('✅ Запис успішно видалено.');
+    });
+
+    finBot.action('cancel_delete', async (ctx) => {
+        await ctx.answerCbQuery('Скасовано');
+        await ctx.editMessageText('Спроба видалення скасована.');
     });
 
     finBot.hears('⬅️ Назад', (ctx) => showMainMenu(ctx));
