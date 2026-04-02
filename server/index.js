@@ -337,6 +337,30 @@ if (TELEGRAM_TOKEN) {
 
 if (FINANCE_TOKEN) {
     finBot.use(session());
+
+    // --- 1. ПЕРЕНЕСЕНО СЮДИ ---
+    const showMainMenu = (ctx) => {
+        return ctx.reply('Family Finance: Головне меню', {
+            reply_markup: {
+                keyboard: [
+                    ['💸 Витрати', '💰 Доходи'],
+                    ['🏦 Заощадження', '📉 Витрата з заощаджень'],
+                    ['🔙 Скасувати останній запис'],
+                    ['❓ Довідка']
+                ],
+                resize_keyboard: true
+            }
+        });
+    };
+
+    const exitScene = async (ctx) => {
+        if (ctx.scene) await ctx.scene.leave();
+        return showMainMenu(ctx);
+    };
+
+    // Обробка старту теж тепер тут
+    finBot.start((ctx) => showMainMenu(ctx));
+    
     // --- 2. Сцени (Wizard Scenes) ---
 
     // Сцена для звичайних витрат/доходів
@@ -486,28 +510,6 @@ if (finBot && GROUP_CHAT_ID) {
             await ctx.reply(`❌ Помилка! Бот намагався відправити на ${GROUP_CHAT_ID}, але Telegram відмовив: ${e.description}`);
         }
     });
-
-    const exitScene = async (ctx) => {
-        await ctx.scene.leave();
-        return showMainMenu(ctx);
-    };
-
-    // --- 3. Головне Меню ---
-    const showMainMenu = (ctx) => {
-        return ctx.reply('Family Finance: Головне меню', {
-            reply_markup: {
-                keyboard: [
-                    ['💸 Витрати', '💰 Доходи'],
-                    ['🏦 Заощадження', '📉 Витрата з заощаджень'],
-                    ['🔙 Скасувати останній запис'],
-                    ['❓ Довідка']
-                ],
-                resize_keyboard: true
-            }
-        });
-    };
-
-    finBot.start((ctx) => showMainMenu(ctx));
 
     // --- 4. Обробка кнопок Меню ---
 
