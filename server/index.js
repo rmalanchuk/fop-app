@@ -215,63 +215,63 @@ if (TELEGRAM_TOKEN) {
     bot.command('price', sendLastPrice);
     bot.hears('⛽️ Остання ціна', sendLastPrice);
     bot.hears('🗑 Скасувати останній запис', async (ctx) => {
-        // 1. Отримуємо ОДИН останній запис з палива
+        // 1. Беремо останній запис за ID (це 100% останній доданий рядок)
         const { data: fuelData } = await supabase
             .from('car_stats')
             .select('*')
-            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
             .limit(1);
 
-        // 2. Отримуємо ОДИН останній запис з сервісу
         const { data: maintData } = await supabase
             .from('car_maintenance')
             .select('*')
-            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
             .limit(1);
 
-        const f = fuelData?.[0]; // Останнє паливо (або null)
-        const m = maintData?.[0]; // Останній сервіс (або null)
+        const f = fuelData?.[0];
+        const m = maintData?.[0];
 
-        // 3. Якщо взагалі нічого немає
-        if (!f && !m) {
-            return ctx.reply("У базі немає жодних записів для видалення.");
-        }
+        if (!f && !m) return ctx.reply("Записів не знайдено.");
 
         let last = null;
         let type = '';
 
-        // 4. ЛОГІКА ПОРІВНЯННЯ
+        // 2. Визначаємо, який з двох записів був створений пізніше.
+        // Оскільки в різних таблицях ID живуть своїм життям, 
+        // ми порівняємо created_at (якщо він є у сервісів) або системні метадані.
+        // Якщо ж ми хочемо просто "найсвіжіший за часом":
+        
         if (f && m) {
-            // Якщо є обидва, порівнюємо час створення
-            const fuelTime = new Date(f.created_at).getTime();
-            const maintTime = new Date(m.created_at).getTime();
+            // Перетворюємо дати у числа для порівняння. 
+            // Якщо в паливі тільки 'date', використовуємо її.
+            const fTime = new Date(f.created_at || f.date).getTime();
+            const mTime = new Date(m.created_at || m.date).getTime();
 
-            if (fuelTime > maintTime) {
-                last = f;
-                type = 'fuel';
+            if (fTime > mTime) {
+                last = f; type = 'fuel';
+            } else if (mTime > fTime) {
+                last = m; type = 'service';
             } else {
-                last = m;
-                type = 'service';
+                // Якщо дати ідентичні (записано в один день), 
+                // зазвичай останній запис — це той, що ти щойно ввів.
+                // Для логіки "скасування" краще запропонувати сервіс, або 
+                // додати created_at в майбутньому. Поки беремо сервіс як пріоритет.
+                last = m; type = 'service';
             }
-        } else if (f) {
-            // Якщо сервісів немає, беремо паливо
-            last = f;
-            type = 'fuel';
         } else {
-            // Якщо палива немає, беремо сервіс
-            last = m;
-            type = 'service';
+            last = f || m;
+            type = f ? 'fuel' : 'service';
         }
 
-        // 5. Формуємо текст повідомлення
         const info = type === 'fuel' 
             ? `⛽ **Паливо**: ${last.amount} грн (${last.liters}л)` 
             : `🛠 **Сервіс**: ${last.description} (${last.cost} грн)`;
 
-        const dateStr = last.date ? last.date.split('T')[0] : 'Невідома дата';
+        // Форматуємо дату для виводу (відрізаємо час, якщо він є)
+        const displayDate = last.date ? last.date.split('T')[0] : '---';
 
         ctx.replyWithMarkdown(
-            `⚠️ **Видалити останній запис?**\n\n${info}\n📅 Дата: ${dateStr}`,
+            `❓ **Видалити останній запис?**\n\n${info}\n📅 Дата: ${displayDate}`,
             {
                 reply_markup: {
                     inline_keyboard: [
@@ -282,6 +282,7 @@ if (TELEGRAM_TOKEN) {
             }
         );
     });
+    
     // Обробник натискання кнопок видалення
     bot.action(/^car_del_(.+)$/, async (ctx) => {
         const actionData = ctx.match[1].split('_');
