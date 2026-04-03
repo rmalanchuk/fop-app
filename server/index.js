@@ -123,6 +123,28 @@ app.delete('/api/maintenance/config/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+// Оновлення пробігу для кнопки "Виконано"
+app.patch('/api/maintenance/config/:id', async (req, res) => {
+    const { id } = req.params;
+    const { last_service_km } = req.body;
+    const key = req.headers['x-secret-key'];
+
+    if (key !== SECRET_KEY) return res.status(401).send('Unauthorized');
+
+    try {
+        const { data, error } = await supabase
+            .from('maintenance_configs')
+            .update({ last_service_km: parseInt(last_service_km) })
+            .eq('id', id);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Update Error:', e);
+        res.status(500).send(e.message);
+    }
+});
+
 // 3. Оновлення пробігу (Кнопка "Виконано")
 app.post('/api/maintenance/done', async (req, res) => {
     const { configId, currentOdo } = req.body;
