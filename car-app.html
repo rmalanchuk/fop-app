@@ -85,13 +85,27 @@
         </div>
 
         <div id="tab-service" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div id="total-service-cost" class="stat-value">0</div>
+                    <div class="stat-label">Всього (грн)</div>
+                </div>
+                <div class="stat-item">
+                    <div id="recent-service-cost" class="stat-value">0</div>
+                    <div class="stat-label">За 3 міс (грн)</div>
+                </div>
+            </div>
+        
             <div class="card">
-                <h3>Maintenance Manager</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;">Maintenance Manager</h3>
+                    <button onclick="alert('Функція додавання буде в v2.1')" style="background:none; border:none; color:var(--primary); font-size:20px; cursor:pointer;">+</button>
+                </div>
                 <div id="maintenance-list"></div>
             </div>
-
+        
             <div class="card">
-                <h3>Історія (Сезонно)</h3>
+                <h3>Історія сервісу</h3>
                 <div id="service-history"></div>
             </div>
         </div>
@@ -165,47 +179,102 @@
         }
 
         function renderMaintenance(data) {
-            const list = document.getElementById('maintenance-list');
-            const lastOdo = data.lastOdo || 0;
+    const list = document.getElementById('maintenance-list');
+    const lastOdo = data.lastOdo || 0;
+    
+    // Рахуємо загальні витрати
+    const total = data.maintenance.reduce((sum, s) => sum + s.cost, 0);
+    document.getElementById('total-service-cost').innerText = total.toLocaleString();
 
-            list.innerHTML = data.configs.map(c => {
-                const passed = lastOdo - c.last_service_km;
-                const percent = Math.min(Math.max((passed / c.limit_km) * 100, 0), 100);
-                const isCritical = percent > 90;
-                
-                return `
-                    <div class="maint-item">
-                        <div class="maint-header">
-                            <span>${c.name}</span>
-                            <span>${passed} / ${c.limit_km} км</span>
-                        </div>
-                        <div class="progress-bg">
-                            <div class="progress-fill ${isCritical ? 'critical' : ''}" style="width: ${percent}%"></div>
-                        </div>
-                        <div style="text-align:right; margin-top:5px;">
-                            <button class="btn-done" onclick="updateMaintenance(${c.id}, ${lastOdo})">Виконано</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+    // Витрати за останні 3 місяці (90 днів)
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+    const recentTotal = data.maintenance
+        .filter(s => new Date(s.date) >= threeMonthsAgo)
+        .reduce((sum, s) => sum + s.cost, 0);
+    document.getElementById('recent-service-cost').innerText = recentTotal.toLocaleString();
 
-        function renderServiceHistory(services) {
-            const container = document.getElementById('service-history');
-            const monthNames = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"];
-            
-            // Групування по 3 місяці (Спрощена логіка)
-            let html = "";
-            const sorted = [...services].sort((a,b) => new Date(b.date) - new Date(a.date));
-            
-            // Для прикладу виведемо просто список, бо логіка групування вимагає ітерації по датах
-            container.innerHTML = sorted.map(s => `
-                <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee;">
-                    <span>${new Date(s.date).toLocaleDateString('uk')} - ${s.description}</span>
-                    <span style="font-weight:bold">${s.cost} ₴</span>
+    if (!data.configs || data.configs.length === 0) {
+        list.innerHTML = '<p style="color:gray; font-size:12px;">Додайте трекери в БД (maintenance_configs)</p>';
+        return;
+    }
+
+    list.innerHTML = data.configs.map(c => {
+        const passed = lastOdo - c.last_service_km;
+        const remaining = c.limit_km - passed;
+        const percent = Math.min(Math.max((passed / c.limit_km) * 100, 0), 100);
+        
+        // Пульсація, якщо залишилось менше 10% ресурсу (або ми вже проїхали ліміт)
+        const isCritical = (c.limit_km - passed) <= (c.limit_km * 0.1);
+        
+        return `
+            <div class="maint-item" style="margin-bottom:20px;">
+                <div class="maint-header">
+                    <span>${c.name}</span>
+                    <span style="color:${isCritical ? '#ff3b30' : 'var(--gray)'}">${remaining > 0 ? 'Залишилось ' + remaining + ' км' : 'Прострочено!'}</span>
                 </div>
-            `).join('');
-        }
+                <div class="progress-bg">
+                    <div class="progress-fill ${isCritical ? 'critical' : ''}" style="width: ${percent}%"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                    <span style="font-size:10px; color:gray;">Остання заміна: ${c.last_service_km} км</span>
+                    <button class="btn-done" onclick="updateMaintenance(${c.id}, ${lastOdo})">Виконано</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderServiceHistory(services) {
+    const container = document.getElementById('service-history');
+    if (!services || services.length === 0) return;
+
+    const monthNames = ["січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру"];
+    
+    // Групуємо записи по 3 місяці
+    const groups = {};
+    const now = new Date();
+
+    services.forEach(s => {
+        const sDate = new Date(s.date);
+        // Визначаємо групу (напр. "лют-кві")
+        // Розрахунок: беремо квартали від поточного місяця
+        const diffMonth = (now.getFullYear() - sDate.getFullYear()) * 12 + now.getMonth() - sDate.getMonth();
+        const groupIndex = Math.floor(diffMonth / 3);
+        
+        if (groupIndex > 3) return; // Тільки за останні 12 місяців (4 групи)
+
+        const groupEnd = new Date(now);
+        groupEnd.setMonth(now.getMonth() - (groupIndex * 3));
+        const groupStart = new Date(now);
+        groupStart.setMonth(now.getMonth() - (groupIndex * 3 + 2));
+
+        const label = `${monthNames[groupStart.getMonth()]} – ${monthNames[groupEnd.getMonth()]}`;
+        
+        if (!groups[label]) groups[label] = [];
+        groups[label].push(s);
+    });
+
+    let html = "";
+    for (const [label, items] of Object.entries(groups)) {
+        const sum = items.reduce((s, i) => s + i.cost, 0);
+        html += `
+            <div class="season-header" style="display:flex; justify-content:space-between; margin: 15px 0 8px 0;">
+                <span>${label.toUpperCase()}</span>
+                <span>${sum} ₴</span>
+            </div>
+            <div style="padding-left: 5px; border-left: 2px solid #eee;">
+                ${items.map(i => `
+                    <div style="display:flex; justify-content:space-between; font-size:13px; padding: 5px 0;">
+                        <span>${i.description} <small style="color:gray; font-size:10px;">(${new Date(i.date).getDate()} ${monthNames[new Date(i.date).getMonth()]})</small></span>
+                        <span style="color:#555">${i.cost} ₴</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    container.innerHTML = html || '<p style="color:gray; text-align:center; font-size:12px;">За останні 12 місяців записів немає</p>';
+}
 
         loadData();
     </script>
