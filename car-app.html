@@ -472,17 +472,21 @@
     function renderServiceHistory(items) {
         const container = document.getElementById('service-history-list');
         if (!items || items.length === 0) return;
-
+    
+        // Сортуємо: нові дати (b) мінус старі дати (a)
         const sortedItems = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
+        
         const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
-
+    
         container.innerHTML = sortedItems.map(i => {
             const dateObj = new Date(i.date);
             return `
                 <div style="display:flex; justify-content:space-between; font-size:13px; padding: 10px 0; border-bottom: 1px solid #f2f2f2;">
                     <div>
                         <div style="font-weight:500;">${i.description}</div>
-                        <div style="font-size:10px; color:gray;">${Number(i.odo).toLocaleString()} км • ${dateObj.getDate()} ${monthNames[dateObj.getMonth()]}</div>
+                        <div style="font-size:10px; color:gray;">
+                            ${Number(i.odo).toLocaleString()} км • ${dateObj.getDate()} ${monthNames[dateObj.getMonth()]} ${dateObj.getFullYear()}
+                        </div>
                     </div>
                     <span style="font-weight:600;">${(Number(i.cost) || 0).toLocaleString()} ₴</span>
                 </div>
