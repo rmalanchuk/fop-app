@@ -301,22 +301,21 @@
         }).join('');
     }
         
-function renderServiceHistory(data) {
+function renderServiceHistory(items) {
     const container = document.getElementById('service-history-list');
     
-    // Перевіряємо, чи є дані
-    if (!data.maintenance || data.maintenance.length === 0) {
+    // Перевіряємо саме той масив (items), який передали у функцію
+    if (!items || items.length === 0) {
         container.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Історія порожня.</p>';
         return;
     }
 
-    // 1. Сортуємо всі записи: найновіша дата зверху
-    const sortedItems = [...data.maintenance].sort((a, b) => new Date(b.date) - new Date(a.date));
+    // 1. Сортуємо: найновіша дата зверху
+    const sortedItems = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Назви місяців для форматування дати
     const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
 
-    // 2. Геруємо HTML для всього списку без розділювачів місяців
+    // 2. Рендеримо список
     container.innerHTML = sortedItems.map(i => {
         const dateObj = new Date(i.date);
         const dateString = `${dateObj.getDate()} ${monthNames[dateObj.getMonth()]}`;
@@ -326,7 +325,7 @@ function renderServiceHistory(data) {
                 <div style="display:flex; flex-direction:column;">
                     <span style="font-weight: 500; color: #333; margin-bottom: 2px;">${i.description}</span>
                     <div style="display:flex; gap: 6px; align-items: center;">
-                        ${i.odo ? `<span style="background: #eee; padding: 1px 5px; border-radius: 4px; font-size: 10px; color: #666; font-weight: 600;">${i.odo.toLocaleString()} км</span>` : ''}
+                        ${i.odo ? `<span style="background: #eee; padding: 1px 5px; border-radius: 4px; font-size: 10px; color: #666; font-weight: 600;">${Number(i.odo).toLocaleString()} км</span>` : ''}
                         <small style="color:gray; font-size:10px;">${dateString}</small>
                     </div>
                 </div>
