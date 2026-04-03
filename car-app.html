@@ -540,20 +540,31 @@
         const hash = window.location.hash.replace('#', '');
         if (hash) showTab(hash);
         loadData();
+
+        // Налаштування кліків для тултіпа (тепер всередині onload)
+        const trigger = document.getElementById('consumption-trigger');
+        if (trigger) {
+            // Відкриття/закриття при кліку на сам блок
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                this.classList.toggle('active-tooltip');
+            });
+
+            // Закриття при кліку в будь-якому іншому місці (ПК + Android)
+            document.addEventListener('click', function(e) {
+                if (!trigger.contains(e.target)) {
+                    trigger.classList.remove('active-tooltip');
+                }
+            });
+
+            // Спеціально для iOS (iPhone), бо там звичайний click поза елементом часто не спрацьовує
+            document.addEventListener('touchstart', function(e) {
+                if (!trigger.contains(e.target)) {
+                    trigger.classList.remove('active-tooltip');
+                }
+            }, { passive: true });
+        }
     };
-        
-    const trigger = document.getElementById('consumption-trigger');
-    if (trigger) {
-        trigger.addEventListener('click', function(e) {
-            e.stopPropagation();
-            this.classList.toggle('active-tooltip');
-        });
-        document.addEventListener('click', function(e) {
-            if (!trigger.contains(e.target)) {
-                trigger.classList.remove('active-tooltip');
-            }
-        });
-    }
 </script>
     
     <div id="maint-modal" class="modal">
