@@ -232,10 +232,8 @@
             return;
         }
     
-        // Сортуємо: нові зверху
         const sortedFuel = [...data.fuel].sort((a, b) => new Date(b.date) - new Date(a.date));
     
-        // Рендеримо таблицю
         list.innerHTML = `
             <div class="card">
                 <h3 style="margin-bottom: 15px;">Історія заправок</h3>
@@ -250,14 +248,10 @@
                     </thead>
                     <tbody>
                         ${sortedFuel.map(f => {
-                            // Очищаємо дані від можливих пробілів або спецсимволів (якщо вони є в БД)
-                            const cleanCost = String(f.cost || "0").replace(/[^\d.,]/g, '').replace(',', '.');
-                            const cleanLiters = String(f.liters || "0").replace(/[^\d.,]/g, '').replace(',', '.');
-                            
-                            const cost = parseFloat(cleanCost) || 0;
-                            const liters = parseFloat(cleanLiters) || 0;
+                            // Для палива використовуємо f.amount згідно з базою
+                            const cost = parseFloat(f.amount) || 0;
+                            const liters = parseFloat(f.liters) || 0;
                             const odo = Number(f.odo) || 0;
-                            
                             const pricePerLitre = liters > 0 ? (cost / liters).toFixed(1) : "0.0";
     
                             return `
@@ -276,8 +270,6 @@
                 </table>
             </div>
         `;
-    
-        // Оновлюємо аналітику (якщо є хоча б 2 заправки)
         updateFuelAnalytics(sortedFuel);
     }
     
