@@ -237,27 +237,25 @@
 
     function renderMaintenance(data) {
         const list = document.getElementById('maintenance-list');
-        const lastOdo = data.lastOdo || 0;
+        
+        // --- ЗМІНА ТУТ: Вираховуємо реальний останній пробіг ---
+        // Беремо всі пробіги з палива та сервісу, і знаходимо максимальний
+        const fuelOdos = data.fuel.map(f => f.odo || 0);
+        const serviceOdos = data.maintenance.map(s => s.odo || 0);
+        const lastOdo = Math.max(0, ...fuelOdos, ...serviceOdos);
+        // -----------------------------------------------------
         
         // 1. ПІДРАХУНОК ВИТРАТ
-        // Загальні
-        const total = data.maintenance.reduce((sum, s) => sum + s.cost, 0);
+        const total = data.maintenance.reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
         document.getElementById('total-service-cost').innerText = total.toLocaleString();
     
-        // За останні 3 місяці (90 днів) — фікс через Timestamp
-        const now = new Date();
         const ninetyDaysAgo = new Date().getTime() - (90 * 24 * 60 * 60 * 1000);
-        
         const recentTotal = data.maintenance
-            .filter(s => {
-                const serviceDate = new Date(s.date).getTime();
-                return serviceDate >= ninetyDaysAgo;
-            })
-            .reduce((sum, s) => sum + s.cost, 0);
+            .filter(s => new Date(s.date).getTime() >= ninetyDaysAgo)
+            .reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
         
         document.getElementById('recent-service-cost').innerText = recentTotal.toLocaleString();
     
-        // 2. РЕНДЕР ТРЕКЕРІВ (CONFIGS)
         if (!data.configs || data.configs.length === 0) {
             list.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Трекерів немає. Натисніть + щоб додати.</p>';
             return;
@@ -267,13 +265,11 @@
             const limit = c.threshold_km || c.limit_km || 0; 
             const lastService = c.last_service_km || 0;
             
+            // Розрахунок базується на вирахуваному lastOdo
             const passed = lastOdo - lastService;
             const remaining = limit - passed;
             
-            // Розрахунок відсотка (захист від ділення на 0)
             const percent = limit > 0 ? Math.min(Math.max((passed / limit) * 100, 0), 100) : 0;
-            
-            // Критичний стан: залишилось менше 10% ресурсу або пробіг вже "в мінусі"
             const isCritical = remaining <= (limit * 0.1);
             
             return `
@@ -283,13 +279,13 @@
                             <span style="font-weight:600;">${c.name}</span>
                             <button class="btn-delete" onclick="deleteMaintenance(${c.id})">🗑️</button>
                         </div>
-                        <span style="color:${isCritical ? '#ff3b30' : 'var(--gray)'}; font-weight:bold;">
-                            ${remaining > 0 ? 'Залишилось ' + remaining + ' км' : 'Прострочено!'}
+                        <span style="color:${remaining <= 0 ? '#ff3b30' : (isCritical ? '#ff9500' : 'var(--gray)')}; font-weight:bold;">
+                            ${remaining > 0 ? 'Залишилось ' + remaining.toLocaleString() + ' км' : 'Прострочено!'}
                         </span>
                     </div>
                     <div class="progress-bg" style="height:10px; background:#eee; border-radius:5px; overflow:hidden;">
-                        <div class="progress-fill ${isCritical ? 'critical' : ''}" 
-                             style="width: ${percent}%; height:100%; background:${isCritical ? '#ff3b30' : 'var(--primary)'}; transition: width 0.5s;">
+                        <div class="progress-fill ${remaining <= 0 ? 'critical' : ''}" 
+                             style="width: ${percent}%; height:100%; background:${remaining <= 0 ? '#ff3b30' : (isCritical ? '#ff9500' : 'var(--primary)')}; transition: width 0.5s;">
                         </div>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
