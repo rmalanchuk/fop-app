@@ -324,12 +324,13 @@
     
         const now = new Date();
         
-        // 1. Рахуємо розхід за останні 30 днів
+        // 1. РОЗРАХУНОК ЗА 30 ДНІВ
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(now.getDate() - 30);
         const recent30 = sortedFuel.filter(f => new Date(f.date) >= thirtyDaysAgo);
     
         if (recent30.length >= 2) {
+            // .slice(0, -1) відкидає найпершу заправку, щоб рахувати тільки реально спалене паливо
             const liters30 = recent30.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.liters) || 0), 0);
             const cost30 = recent30.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
             const odos30 = recent30.map(f => Number(f.odo)).filter(o => o > 0);
@@ -342,26 +343,33 @@
             }
         }
     
-        // 2. Рахуємо розхід за останні 6 місяців (групування)
+        // 2. РОЗРАХУНОК ДЛЯ ПІДКАЗКИ (TOOLTIP) - Оновлена логіка
         const historyTooltip = document.getElementById('consumption-history-tooltip');
         const monthsData = {};
         const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
     
-        // Беремо дані за останні 180 днів для історії
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setDate(now.getDate() - 180);
-        const historyData = sortedFuel.filter(f => new Date(f.date) >= sixMonthsAgo);
-    
-        // Групуємо заправки по місяцях
-        historyData.forEach(f => {
+        // Спочатку просто групуємо пробіги по місяцях
+        sortedFuel.forEach(f => {
             const d = new Date(f.date);
             const key = `${d.getMonth()}-${d.getFullYear()}`;
-            if (!monthsData[key]) monthsData[key] = { liters: 0, odos: [], label: `${monthNames[d.getMonth()]} ${d.getFullYear()}` };
-            monthsData[key].liters += (parseFloat(f.liters) || 0);
+            if (!monthsData[key]) {
+                monthsData[key] = { liters: 0, odos: [], label: `${monthNames[d.getMonth()]} ${d.getFullYear()}` };
+            }
             monthsData[key].odos.push(Number(f.odo));
         });
     
-        // Формуємо HTML для підказки
+        // ТУТ ГОЛОВНА ЗМІНА: Додаємо літри в місяці за тією ж логікою "відрізків"
+        // Ми проходимо по заправках і додаємо літри кожної заправки в той місяць, до якого вона належить,
+        // АЛЕ ігноруємо саму останню за часом (найстарішу) заправку в історії.
+        for (let i = 0; i < sortedFuel.length - 1; i++) {
+            const f = sortedFuel[i];
+            const d = new Date(f.date);
+            const key = `${d.getMonth()}-${d.getFullYear()}`;
+            if (monthsData[key]) {
+                monthsData[key].liters += (parseFloat(f.liters) || 0);
+            }
+        }
+    
         let tooltipHtml = "";
         Object.keys(monthsData).sort((a,b) => {
             const [m1, y1] = a.split('-').map(Number);
@@ -370,7 +378,7 @@
         }).slice(0, 6).forEach(key => {
             const m = monthsData[key];
             const dist = Math.max(...m.odos) - Math.min(...m.odos);
-            // Розрахунок приблизний (літри за місяць на дистанцію за місяць)
+            // Тепер розрахунок у підказці буде збігатися з основним
             const avg = dist > 50 ? ((m.liters / dist) * 100).toFixed(1) : "—"; 
             tooltipHtml += `
                 <div class="tooltip-row">
@@ -381,6 +389,7 @@
     
         historyTooltip.innerHTML = tooltipHtml || "Немає даних за 6 міс.";
     }
+        
     function renderMaintenance(data) {
         const list = document.getElementById('maintenance-list');
         const lastOdo = data.lastOdo || 0;
