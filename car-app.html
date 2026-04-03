@@ -229,39 +229,54 @@
         }
 
         function renderFuel(data) {
-            // Виводимо пробіг (вже розрахований у loadData)
-            const odoDisplay = document.getElementById('current-odo-display');
-            if (odoDisplay && data.lastOdo) {
-                odoDisplay.innerText = data.lastOdo.toLocaleString();
-            }
-
-            // 1. Математика 180 днів
-            const sixMonthsAgo = new Date();
-            sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
+            const list = document.getElementById('fuel-list');
             
-            const recent = data.fuel.filter(f => new Date(f.date) >= sixMonthsAgo).sort((a,b) => a.odo - b.odo);
-            
-            if (recent.length >= 2) {
-                const totalLiters = recent.slice(1).reduce((sum, f) => sum + f.liters, 0);
-                const totalCash = recent.slice(1).reduce((sum, f) => sum + f.amount, 0);
-                const dist = recent[recent.length-1].odo - recent[0].odo;
-                
-                if (dist > 0) {
-                    document.getElementById('avg-consumption').innerText = ((totalLiters / dist) * 100).toFixed(1);
-                    document.getElementById('cost-100km').innerText = Math.round((totalCash / dist) * 100) + " ₴";
-                }
+            if (!data.fuel || data.fuel.length === 0) {
+                list.innerHTML = '<p style="color:gray; text-align:center; padding:20px;">Історія заправок порожня.</p>';
+                return;
             }
-
-            // 2. Таблиця (останні 5)
-            const tbody = document.querySelector('#fuel-table tbody');
-            tbody.innerHTML = [...data.fuel].reverse().slice(0, 5).map(f => `
-                <tr>
-                    <td>${new Date(f.date).toLocaleDateString('uk')}</td>
-                    <td>${f.amount} ₴<br><span class="price-sub">${f.priceAtTime || f.priceattime || 0} грн/л</span></td>
-                    <td>${f.liters}л</td>
-                    <td>${f.odo}</td>
-                </tr>
-            `).join('');
+        
+            // Сортуємо: нові (більша дата/пробіг) зверху
+            const sortedFuel = [...data.fuel].sort((a, b) => {
+                // Спочатку за датою
+                const dateDiff = new Date(b.date) - new Date(a.date);
+                if (dateDiff !== 0) return dateDiff;
+                // Якщо дата однакова — за пробігом
+                return (b.odo || 0) - (a.odo || 0);
+            });
+        
+            // Генеруємо HTML для ВСІХ записів
+            list.innerHTML = `
+                <div class="fuel-history-card">
+                    <h3 style="margin-bottom: 15px;">Історія заправок</h3>
+                    <table class="fuel-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="color: gray; text-align: left; border-bottom: 1px solid #eee;">
+                                <th style="padding: 8px 0;">Дата</th>
+                                <th>Сума</th>
+                                <th>Літри</th>
+                                <th>Пробіг</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sortedFuel.map(f => {
+                                const pricePerLitre = (f.cost / f.liters).toFixed(1);
+                                return `
+                                    <tr style="border-bottom: 1px solid #f9f9f9;">
+                                        <td style="padding: 12px 0;">${new Date(f.date).toLocaleDateString('uk-UA')}</td>
+                                        <td>
+                                            <div style="font-weight: 600;">${Number(f.cost).toLocaleString()} ₴</div>
+                                            <div style="font-size: 10px; color: gray;">${pricePerLitre} грн/л</div>
+                                        </td>
+                                        <td>${f.liters}л</td>
+                                        <td style="color: #666;">${Number(f.odo).toLocaleString()}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
         }
 
     function renderMaintenance(data) {
