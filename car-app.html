@@ -138,7 +138,7 @@
                     <div class="stat-label" style="font-size: 10px;">ПОТОЧНИЙ ПРОБІГ (КМ)</div>
                 </div>
             </div>
-
+        
             <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
                 <div class="stat-item">
                     <div id="avg-consumption" class="stat-value">0</div>
@@ -149,16 +149,8 @@
                     <div class="stat-label">грн / 100 км</div>
                 </div>
             </div>
-
-            <div class="card">
-                <h3>5 останніх заправок</h3>
-                <table id="fuel-table">
-                    <thead>
-                        <tr><th>Дата</th><th>Сума</th><th>Літри</th><th>Пробіг</th></tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
+        
+            <div id="fuel-list"></div>
         </div>
 
         <div id="tab-service" class="hidden">
@@ -189,293 +181,196 @@
     </div>
 
     <script>
-        const API_URL = 'https://fop-app-02d3.onrender.com';
-        let key = new URLSearchParams(window.location.search).get('key') || localStorage.getItem('car_auth_key');
+    const API_URL = 'https://fop-app-02d3.onrender.com';
+    let key = new URLSearchParams(window.location.search).get('key') || localStorage.getItem('car_auth_key');
 
-        function showTab(tab) {
-            document.getElementById('tab-fuel').classList.toggle('hidden', tab !== 'fuel');
-            document.getElementById('tab-service').classList.toggle('hidden', tab !== 'service');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.includes(tab === 'fuel' ? 'Паливо' : 'Сервіс')));
+    // Оновлена функція перемикання вкладок
+    function showTab(tab) {
+        document.getElementById('tab-fuel').classList.toggle('hidden', tab !== 'fuel');
+        document.getElementById('tab-service').classList.toggle('hidden', tab !== 'service');
+        
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            const isFuel = b.innerText.includes('Паливо');
+            b.classList.toggle('active', (tab === 'fuel' && isFuel) || (tab === 'service' && !isFuel));
+        });
+        window.location.hash = tab;
+    }
+
+    async function loadData() {
+        if (!key) {
+            const input = prompt("Key:");
+            if (input) { localStorage.setItem('car_auth_key', input); location.reload(); }
+            return;
         }
 
-        async function updateMaintenance(id, odo) {
-            if (!confirm(`Підтвердити виконання ТО на пробігу ${odo} км?`)) return;
-            await fetch(`${API_URL}/api/maintenance/done`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-secret-key': key },
-                body: JSON.stringify({ configId: id, currentOdo: odo })
-            });
-            location.reload();
-        }
-
-        async function loadData() {
-            if (!key) {
-                const input = prompt("Key:");
-                if (input) { localStorage.setItem('car_auth_key', input); location.reload(); }
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API_URL}/car-stats`, { headers: { 'x-secret-key': key } });
-                const data = await res.json();
-                const fuelOdos = (data.fuel || []).map(f => Number(f.odo) || 0);
-                const serviceOdos = (data.maintenance || []).map(s => Number(s.odo) || 0);
-                data.lastOdo = Math.max(0, ...fuelOdos, ...serviceOdos); // Записуємо в data
-                
-                renderFuel(data);
-                renderMaintenance(data);
-                renderServiceHistory(data.maintenance);
-            } catch (e) { alert("Помилка завантаження"); }
-        }
-
-        function renderFuel(data) {
-            const list = document.getElementById('fuel-list');
+        try {
+            const res = await fetch(`${API_URL}/car-stats`, { headers: { 'x-secret-key': key } });
+            const data = await res.json();
             
-            if (!data.fuel || data.fuel.length === 0) {
-                list.innerHTML = '<p style="color:gray; text-align:center; padding:20px;">Історія заправок порожня.</p>';
-                return;
-            }
-        
-            // Сортуємо: нові (більша дата/пробіг) зверху
-            const sortedFuel = [...data.fuel].sort((a, b) => {
-                // Спочатку за датою
-                const dateDiff = new Date(b.date) - new Date(a.date);
-                if (dateDiff !== 0) return dateDiff;
-                // Якщо дата однакова — за пробігом
-                return (b.odo || 0) - (a.odo || 0);
-            });
-        
-            // Генеруємо HTML для ВСІХ записів
-            list.innerHTML = `
-                <div class="fuel-history-card">
-                    <h3 style="margin-bottom: 15px;">Історія заправок</h3>
-                    <table class="fuel-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
-                        <thead>
-                            <tr style="color: gray; text-align: left; border-bottom: 1px solid #eee;">
-                                <th style="padding: 8px 0;">Дата</th>
-                                <th>Сума</th>
-                                <th>Літри</th>
-                                <th>Пробіг</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sortedFuel.map(f => {
-                                const pricePerLitre = (f.cost / f.liters).toFixed(1);
-                                return `
-                                    <tr style="border-bottom: 1px solid #f9f9f9;">
-                                        <td style="padding: 12px 0;">${new Date(f.date).toLocaleDateString('uk-UA')}</td>
-                                        <td>
-                                            <div style="font-weight: 600;">${Number(f.cost).toLocaleString()} ₴</div>
-                                            <div style="font-size: 10px; color: gray;">${pricePerLitre} грн/л</div>
-                                        </td>
-                                        <td>${f.liters}л</td>
-                                        <td style="color: #666;">${Number(f.odo).toLocaleString()}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+            const fuelOdos = (data.fuel || []).map(f => Number(f.odo) || 0);
+            const serviceOdos = (data.maintenance || []).map(s => Number(s.odo) || 0);
+            data.lastOdo = Math.max(0, ...fuelOdos, ...serviceOdos);
+            
+            // Оновлюємо відображення загального пробігу
+            document.getElementById('current-odo-display').innerText = data.lastOdo.toLocaleString();
 
-    function renderMaintenance(data) {
-        const list = document.getElementById('maintenance-list');
+            renderFuel(data);
+            renderMaintenance(data);
+            renderServiceHistory(data.maintenance);
+        } catch (e) { 
+            console.error(e);
+            alert("Помилка завантаження даних"); 
+        }
+    }
+
+    function renderFuel(data) {
+        const list = document.getElementById('fuel-list');
+        if (!list) return;
         
-        // 1. Вираховуємо реальний останній пробіг
-        const fuelOdos = data.fuel.map(f => f.odo || 0);
-        const serviceOdos = data.maintenance.map(s => s.odo || 0);
-        const lastOdo = Math.max(0, ...fuelOdos, ...serviceOdos);
-        
-        // 2. ПІДРАХУНОК ВИТРАТ
-        const total = data.maintenance.reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
-        document.getElementById('total-service-cost').innerText = total.toLocaleString();
-    
-        const ninetyDaysAgo = new Date().getTime() - (90 * 24 * 60 * 60 * 1000);
-        const recentTotal = data.maintenance
-            .filter(s => new Date(s.date).getTime() >= ninetyDaysAgo)
-            .reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
-        
-        document.getElementById('recent-service-cost').innerText = recentTotal.toLocaleString();
-    
-        if (!data.configs || data.configs.length === 0) {
-            list.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Трекерів немає. Натисніть + щоб додати.</p>';
+        if (!data.fuel || data.fuel.length === 0) {
+            list.innerHTML = '<p style="color:gray; text-align:center; padding:20px;">Історія заправок порожня.</p>';
             return;
         }
     
-        // 3. ГЕНЕРАЦІЯ СПИСКУ
+        const sortedFuel = [...data.fuel].sort((a, b) => new Date(b.date) - new Date(a.date) || (b.odo - a.odo));
+    
+        list.innerHTML = `
+            <div class="card">
+                <h3 style="margin-bottom: 15px;">Історія заправок</h3>
+                <table>
+                    <thead>
+                        <tr><th>Дата</th><th>Сума</th><th>Літри</th><th>Пробіг</th></tr>
+                    </thead>
+                    <tbody>
+                        ${sortedFuel.map(f => {
+                            const pricePerLitre = f.liters > 0 ? (f.cost / f.liters).toFixed(1) : 0;
+                            return `
+                                <tr>
+                                    <td>${new Date(f.date).toLocaleDateString('uk-UA')}</td>
+                                    <td>
+                                        <div style="font-weight:600;">${Number(f.cost).toLocaleString()} ₴</div>
+                                        <div class="price-sub">${pricePerLitre} грн/л</div>
+                                    </td>
+                                    <td>${f.liters}л</td>
+                                    <td style="color:#666;">${Number(f.odo).toLocaleString()}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    function renderMaintenance(data) {
+        const list = document.getElementById('maintenance-list');
+        const lastOdo = data.lastOdo || 0;
+
+        const total = data.maintenance.reduce((sum, s) => sum + (Number(s.cost) || 0), 0);
+        document.getElementById('total-service-cost').innerText = total.toLocaleString();
+
+        if (!data.configs || data.configs.length === 0) {
+            list.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Трекерів немає.</p>';
+            return;
+        }
+
         list.innerHTML = data.configs.map(c => {
             const limit = c.threshold_km || c.limit_km || 0; 
             const lastService = c.last_service_km || 0;
-            
             const passed = lastOdo - lastService;
             const remaining = limit - passed;
-            
             const percent = limit > 0 ? Math.min(Math.max((passed / limit) * 100, 0), 100) : 0;
             const isCritical = remaining <= (limit * 0.1);
             
             return `
-                <div class="maint-item" style="margin-bottom:20px;">
+                <div class="maint-item">
                     <div class="maint-header">
                         <div class="maint-title-row">
                             <span style="font-weight:600;">${c.name}</span>
                             <button class="btn-delete" onclick="deleteMaintenance(${c.id})">🗑️</button>
                         </div>
-                        <span style="color:${remaining <= 0 ? '#ff3b30' : (isCritical ? '#ff9500' : 'var(--gray)')}; font-weight:bold; flex-shrink:0; text-align:right;">
-                            ${remaining > 0 ? 'Залишилось ' + remaining.toLocaleString() + ' км' : 'Прострочено!'}
+                        <span style="color:${remaining <= 0 ? '#ff3b30' : (isCritical ? '#ff9500' : 'var(--gray)')}; font-weight:bold; text-align:right;">
+                            ${remaining > 0 ? remaining.toLocaleString() + ' км' : 'Прострочено!'}
                         </span>
                     </div>
                     <div class="progress-bg">
-                        <div class="progress-fill ${remaining <= 0 ? 'critical' : ''}" 
-                             style="width: ${percent}%; height:100%; background:${remaining <= 0 ? '#ff3b30' : (isCritical ? '#ff9500' : 'var(--primary)')}; transition: width 0.5s;">
-                        </div>
+                        <div class="progress-fill ${remaining <= 0 ? 'critical' : ''}" style="width:${percent}%"></div>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                        <span style="font-size:10px; color:gray;">Остання: ${lastService.toLocaleString()} км | Ліміт: ${limit.toLocaleString()}</span>
-                        <button class="btn-done" 
-                                style="background:#34c759; color:white; border:none; padding:5px 12px; border-radius:8px; font-size:12px; cursor:pointer;"
-                                onclick="updateMaintenance(${c.id}, ${lastOdo})">
-                            Виконано
-                        </button>
+                        <span style="font-size:10px; color:gray;">Остання: ${lastService.toLocaleString()} | Ліміт: ${limit}</span>
+                        <button class="btn-done" onclick="updateMaintenance(${c.id}, ${lastOdo})">Виконано</button>
                     </div>
                 </div>
             `;
         }).join('');
     }
-        
-function renderServiceHistory(items) {
-    const container = document.getElementById('service-history-list');
-    
-    if (!items || items.length === 0) {
-        container.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Історія порожня.</p>';
-        return;
+
+    function renderServiceHistory(items) {
+        const container = document.getElementById('service-history-list');
+        if (!items || items.length === 0) return;
+
+        const sortedItems = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
+
+        container.innerHTML = sortedItems.map(i => {
+            const dateObj = new Date(i.date);
+            return `
+                <div style="display:flex; justify-content:space-between; font-size:13px; padding: 10px 0; border-bottom: 1px solid #f2f2f2;">
+                    <div>
+                        <div style="font-weight:500;">${i.description}</div>
+                        <div style="font-size:10px; color:gray;">${Number(i.odo).toLocaleString()} км • ${dateObj.getDate()} ${monthNames[dateObj.getMonth()]}</div>
+                    </div>
+                    <span style="font-weight:600;">${(Number(i.cost) || 0).toLocaleString()} ₴</span>
+                </div>
+            `;
+        }).join('');
     }
 
-    // СОРТУВАННЯ: спочатку за датою, якщо дати рівні — за ID (свіжіші мають більший ID)
-    const sortedItems = [...items].sort((a, b) => {
-        const dateDiff = new Date(b.date) - new Date(a.date);
-        if (dateDiff !== 0) return dateDiff;
-        return b.id - a.id; // Додаткова перевірка за ID для однакових дат
-    });
+    // Модальне вікно
+    function openMaintModal() {
+        document.getElementById('maint-modal').style.display = 'block';
+        const currentOdo = document.getElementById('current-odo-display').innerText.replace(/\s/g, '');
+        document.getElementById('maint-last').value = currentOdo;
+        document.getElementById('maint-name').focus();
+    }
 
-    const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
+    function closeMaintModal() {
+        document.getElementById('maint-modal').style.display = 'none';
+    }
 
-    container.innerHTML = sortedItems.map(i => {
-        const dateObj = new Date(i.date);
-        const dateString = `${dateObj.getDate()} ${monthNames[dateObj.getMonth()]}`;
+    async function saveNewMaint() {
+        const name = document.getElementById('maint-name').value;
+        const limit = document.getElementById('maint-limit').value;
+        const last = document.getElementById('maint-last').value;
 
-        return `
-            <div style="display:flex; justify-content:space-between; font-size:13px; padding: 10px 0; border-bottom: 1px solid #f2f2f2; align-items: flex-start;">
-                <div style="display:flex; flex-direction:column;">
-                    <span style="font-weight: 500; color: #333; margin-bottom: 2px;">${i.description}</span>
-                    <div style="display:flex; gap: 6px; align-items: center;">
-                        ${i.odo ? `<span style="background: #eee; padding: 1px 5px; border-radius: 4px; font-size: 10px; color: #666; font-weight: 600;">${Number(i.odo).toLocaleString()} км</span>` : ''}
-                        <small style="color:gray; font-size:10px;">${dateString}</small>
-                    </div>
-                </div>
-                <span style="font-weight:600; color: #333; white-space: nowrap;">${(Number(i.cost) || 0).toLocaleString()} ₴</span>
-            </div>
-        `;
-    }).join('');
-}
-        loadData();
-        function openMaintModal() {
-            document.getElementById('maint-modal').style.display = 'block';
-            // Автоматично підставляємо останній відомий пробіг для зручності
-            const lastOdoText = document.getElementById('last-odo')?.innerText || "0";
-            document.getElementById('maint-last').value = lastOdoText.replace(/\s/g, '');
-        }
-        
-        function closeMaintModal() {
-            document.getElementById('maint-modal').style.display = 'none';
-        }
-        
-        async function saveNewMaint() {
-            const btn = document.getElementById('save-maint-btn');
-            const name = document.getElementById('maint-name').value;
-            const limit = document.getElementById('maint-limit').value;
-            const last = document.getElementById('maint-last').value;
-        
-            if (!name || !limit || !last) return alert("Заповніть всі поля");
-        
-            btn.innerText = "Збереження...";
-            btn.disabled = true;
-        
-            try {
-                const response = await fetch(`${API_URL}/api/maintenance/config`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-secret-key': key },
-                    body: JSON.stringify({ 
-                        name: name, 
-                        limit_km: parseInt(limit), 
-                        last_service_km: parseInt(last) 
-                    })
-                });
-        
-                if (response.ok) {
-                    closeMaintModal(); // Тепер закриється
-                    location.reload(); // Перезавантаження підтягне новий трекер
-                } else {
-                    const err = await response.json();
-                    alert("Помилка: " + (err.message || "сервер не відповів"));
-                }
-            } catch (e) {
-                alert("Помилка мережі");
-            } finally {
-                btn.innerText = "Зберегти";
-                btn.disabled = false;
-            }
-        }
-        
-        // Закриття вікна при кліку поза ним
-        window.onclick = function(event) {
-            const modal = document.getElementById('maint-modal');
-            if (event.target == modal) closeMaintModal();
-        }
+        if (!name || !limit) return alert("Заповніть назву та ліміт");
 
-        // Функція видалення трекера
-        async function deleteMaintenance(id) {
-            if (!confirm("Видалити цей трекер ТО?")) return;
-        
-            try {
-                const response = await fetch(`${API_URL}/api/maintenance/config/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'x-secret-key': key }
-                });
-        
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert("Не вдалося видалити");
-                }
-            } catch (e) {
-                alert("Помилка мережі");
-            }
-        }
-        
-        // Оновлене відкриття модалки з фокусом
-        function openMaintModal() {
-            document.getElementById('maint-modal').style.display = 'block';
-            document.getElementById('maint-name').focus();
-            // Підставляємо 0 як дефолт, щоб не було порожньо
-            document.getElementById('maint-last').value = "0"; 
-        }
+        try {
+            await fetch(`${API_URL}/api/maintenance/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-secret-key': key },
+                body: JSON.stringify({ name, limit_km: parseInt(limit), last_service_km: parseInt(last || 0) })
+            });
+            location.reload();
+        } catch (e) { alert("Помилка збереження"); }
+    }
 
-        // Автоматичне перемикання вкладки при завантаженні
-        window.addEventListener('DOMContentLoaded', () => {
-            const hash = window.location.hash.replace('#', '');
-            if (hash === 'service' || hash === 'fuel') {
-                showTab(hash);
-            }
+    async function deleteMaintenance(id) {
+        if (!confirm("Видалити?")) return;
+        await fetch(`${API_URL}/api/maintenance/config/${id}`, {
+            method: 'DELETE',
+            headers: { 'x-secret-key': key }
         });
-        
-        // Оновлюємо функцію showTab, щоб вона зберігала стан в URL
-        const originalShowTab = showTab;
-        showTab = function(tab) {
-            originalShowTab(tab);
-            window.location.hash = tab; 
-        };
-    </script>
+        location.reload();
+    }
+
+    window.onload = () => {
+        const hash = window.location.hash.replace('#', '');
+        if (hash) showTab(hash);
+        loadData();
+    };
+</script>
+    
     <div id="maint-modal" class="modal">
         <div class="modal-content">
             <h3 style="margin-bottom: 20px;">Новий трекер ТО</h3>
