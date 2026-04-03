@@ -119,14 +119,17 @@
 
     <div class="container">
         <div id="tab-fuel">
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div id="avg-consumption" class="stat-value">0</div>
-                    <div class="stat-label">Розхід (180 дн)</div>
+            <div class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr;"> <div class="stat-item">
+                    <div id="current-odo-display" class="stat-value" style="font-size: 16px;">0</div>
+                    <div class="stat-label">Пробіг (км)</div>
                 </div>
                 <div class="stat-item">
-                    <div id="cost-100km" class="stat-value">0</div>
-                    <div class="stat-label">грн / 100 км</div>
+                    <div id="avg-consumption" class="stat-value" style="font-size: 16px;">0</div>
+                    <div class="stat-label">Розхід</div>
+                </div>
+                <div class="stat-item">
+                    <div id="cost-100km" class="stat-value" style="font-size: 16px;">0</div>
+                    <div class="stat-label">грн / 100</div>
                 </div>
             </div>
 
@@ -206,6 +209,14 @@
         }
 
         function renderFuel(data) {
+            // Вираховуємо поточний пробіг (як ти робив для ТО)
+            const fuelOdos = (data.fuel || []).map(f => Number(f.odo) || 0);
+            const serviceOdos = (data.maintenance || []).map(s => Number(s.odo) || 0);
+            const lastOdo = Math.max(0, ...fuelOdos, ...serviceOdos);
+            
+            // Виводимо пробіг у новий блок
+            document.getElementById('current-odo-display').innerText = lastOdo.toLocaleString();
+
             // 1. Математика 180 днів
             const sixMonthsAgo = new Date();
             sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
