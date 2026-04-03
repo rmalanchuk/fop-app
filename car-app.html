@@ -119,17 +119,21 @@
 
     <div class="container">
         <div id="tab-fuel">
-            <div class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr;"> <div class="stat-item">
-                    <div id="current-odo-display" class="stat-value" style="font-size: 16px;">0</div>
-                    <div class="stat-label">Пробіг (км)</div>
+            <div class="card" style="margin-bottom: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #eee;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    <div id="current-odo-display" class="stat-value" style="font-size: 28px; letter-spacing: -1px;">0</div>
+                    <div class="stat-label" style="font-size: 10px;">ПОТОЧНИЙ ПРОБІГ (КМ)</div>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                <div class="stat-item">
+                    <div id="avg-consumption" class="stat-value">0</div>
+                    <div class="stat-label">Розхід (180 дн)</div>
                 </div>
                 <div class="stat-item">
-                    <div id="avg-consumption" class="stat-value" style="font-size: 16px;">0</div>
-                    <div class="stat-label">Розхід</div>
-                </div>
-                <div class="stat-item">
-                    <div id="cost-100km" class="stat-value" style="font-size: 16px;">0</div>
-                    <div class="stat-label">грн / 100</div>
+                    <div id="cost-100km" class="stat-value">0</div>
+                    <div class="stat-label">грн / 100 км</div>
                 </div>
             </div>
 
@@ -201,6 +205,9 @@
             try {
                 const res = await fetch(`${API_URL}/car-stats`, { headers: { 'x-secret-key': key } });
                 const data = await res.json();
+                const fuelOdos = (data.fuel || []).map(f => Number(f.odo) || 0);
+                const serviceOdos = (data.maintenance || []).map(s => Number(s.odo) || 0);
+                data.lastOdo = Math.max(0, ...fuelOdos, ...serviceOdos); // Записуємо в data
                 
                 renderFuel(data);
                 renderMaintenance(data);
@@ -209,13 +216,11 @@
         }
 
         function renderFuel(data) {
-            // Вираховуємо поточний пробіг (як ти робив для ТО)
-            const fuelOdos = (data.fuel || []).map(f => Number(f.odo) || 0);
-            const serviceOdos = (data.maintenance || []).map(s => Number(s.odo) || 0);
-            const lastOdo = Math.max(0, ...fuelOdos, ...serviceOdos);
-            
-            // Виводимо пробіг у новий блок
-            document.getElementById('current-odo-display').innerText = lastOdo.toLocaleString();
+            // Виводимо пробіг (вже розрахований у loadData)
+            const odoDisplay = document.getElementById('current-odo-display');
+            if (odoDisplay && data.lastOdo) {
+                odoDisplay.innerText = data.lastOdo.toLocaleString();
+            }
 
             // 1. Математика 180 днів
             const sixMonthsAgo = new Date();
