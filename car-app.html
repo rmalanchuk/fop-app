@@ -275,25 +275,43 @@
     
     // Допоміжна функція для розрахунку аналітики
     function updateFuelAnalytics(sortedFuel) {
-        if (sortedFuel.length < 2) return;
+        if (!sortedFuel || sortedFuel.length < 2) {
+            console.log("Мало даних для аналітики");
+            return;
+        }
     
         const now = new Date();
-        const halfYearAgo = now.setDate(now.getDate() - 180);
+        const halfYearAgo = new Date();
+        halfYearAgo.setDate(now.getDate() - 180);
+    
+        // Фільтруємо за останні 180 днів
         const recent = sortedFuel.filter(f => new Date(f.date) >= halfYearAgo);
     
         if (recent.length >= 2) {
-            const totalLiters = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(String(f.liters).replace(',', '.')) || 0), 0);
-            const totalCost = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(String(f.cost).replace(',', '.')) || 0), 0);
+            // Рахуємо все, крім найпершої (базової) заправки в цьому періоді
+            // Використовуємо f.amount (згідно з вашою БД)
+            const totalLiters = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.liters) || 0), 0);
+            const totalCost = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
             
+            // Вираховуємо дистанцію
             const odos = recent.map(f => Number(f.odo)).filter(o => o > 0);
             const distance = Math.max(...odos) - Math.min(...odos);
     
+            console.log(`Аналітика: Літри=${totalLiters}, Гроші=${totalCost}, Дистанція=${distance}`);
+    
             if (distance > 0) {
-                const avg = (totalLiters / distance) * 100;
-                const cost100 = (totalCost / distance) * 100;
-                document.getElementById('avg-consumption').innerText = avg.toFixed(1);
-                document.getElementById('cost-100km').innerText = Math.round(cost100).toLocaleString();
+                const avgLiters = (totalLiters / distance) * 100;
+                const avgCash = (totalCost / distance) * 100;
+    
+                // Оновлюємо UI
+                const avgConsElem = document.getElementById('avg-consumption');
+                const cost100Elem = document.getElementById('cost-100km');
+    
+                if (avgConsElem) avgConsElem.innerText = avgLiters.toFixed(1);
+                if (cost100Elem) cost100Elem.innerText = Math.round(avgCash).toLocaleString();
             }
+        } else {
+            console.log("Недостатньо заправок за останні 180 днів");
         }
     }
 
