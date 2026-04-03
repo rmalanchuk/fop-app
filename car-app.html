@@ -121,6 +121,46 @@
             overflow: hidden;
             text-overflow: ellipsis; /* Якщо назва дуже довга, вона красиво обріжеться */
         }
+
+        /* Стиль контейнера статики для позиціювання підказки */
+        .stat-item { position: relative; cursor: pointer; }
+        
+        /* Сама підказка */
+        .consumption-tooltip {
+            display: none;
+            position: absolute;
+            top: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            z-index: 100;
+            width: 160px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        
+        .consumption-tooltip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent transparent #333 transparent;
+        }
+        
+        /* Показуємо при наведенні (десктоп) */
+        .stat-item:hover .consumption-tooltip { display: block; }
+        
+        /* Клас для примусового показу на моб (будемо перемикати через JS) */
+        .stat-item.active-tooltip .consumption-tooltip { display: block; }
+        
+        .tooltip-row { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px solid #444; padding-bottom: 2px; }
+        .tooltip-row:last-child { border: none; margin: 0; }
     </style>
 </head>
 <body>
@@ -141,7 +181,13 @@
         
             <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
                 <div class="stat-item">
-                    <div id="avg-consumption" class="stat-value">0</div>
+                    <div class="stat-item" onclick="this.classList.toggle('active-tooltip')">
+                        <div id="avg-consumption" class="stat-value">0</div>
+                            <div id="consumption-label" class="stat-label">Розхід (30 дн)</div>
+                            <div id="consumption-history-tooltip" class="consumption-tooltip">
+                                Завантаження...
+                            </div>
+                        </div>
                     <div class="stat-label">Розхід (180 дн)</div>
                 </div>
                 <div class="stat-item">
@@ -275,46 +321,67 @@
     
     // Допоміжна функція для розрахунку аналітики
     function updateFuelAnalytics(sortedFuel) {
-        if (!sortedFuel || sortedFuel.length < 2) {
-            console.log("Мало даних для аналітики");
-            return;
-        }
+        if (!sortedFuel || sortedFuel.length < 2) return;
     
         const now = new Date();
-        const halfYearAgo = new Date();
-        halfYearAgo.setDate(now.getDate() - 180);
+        
+        // 1. Рахуємо розхід за останні 30 днів
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        const recent30 = sortedFuel.filter(f => new Date(f.date) >= thirtyDaysAgo);
     
-        // Фільтруємо за останні 180 днів
-        const recent = sortedFuel.filter(f => new Date(f.date) >= halfYearAgo);
+        if (recent30.length >= 2) {
+            const liters30 = recent30.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.liters) || 0), 0);
+            const cost30 = recent30.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
+            const odos30 = recent30.map(f => Number(f.odo)).filter(o => o > 0);
+            const dist30 = Math.max(...odos30) - Math.min(...odos30);
     
-        if (recent.length >= 2) {
-            // Рахуємо все, крім найпершої (базової) заправки в цьому періоді
-            // Використовуємо f.amount (згідно з вашою БД)
-            const totalLiters = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.liters) || 0), 0);
-            const totalCost = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
-            
-            // Вираховуємо дистанцію
-            const odos = recent.map(f => Number(f.odo)).filter(o => o > 0);
-            const distance = Math.max(...odos) - Math.min(...odos);
-    
-            console.log(`Аналітика: Літри=${totalLiters}, Гроші=${totalCost}, Дистанція=${distance}`);
-    
-            if (distance > 0) {
-                const avgLiters = (totalLiters / distance) * 100;
-                const avgCash = (totalCost / distance) * 100;
-    
-                // Оновлюємо UI
-                const avgConsElem = document.getElementById('avg-consumption');
-                const cost100Elem = document.getElementById('cost-100km');
-    
-                if (avgConsElem) avgConsElem.innerText = avgLiters.toFixed(1);
-                if (cost100Elem) cost100Elem.innerText = Math.round(avgCash).toLocaleString();
+            if (dist30 > 0) {
+                document.getElementById('avg-consumption').innerText = ((liters30 / dist30) * 100).toFixed(1);
+                document.getElementById('cost-100km').innerText = Math.round((cost30 / dist30) * 100).toLocaleString();
+                document.getElementById('consumption-label').innerText = "Розхід (30 дн)";
             }
-        } else {
-            console.log("Недостатньо заправок за останні 180 днів");
         }
+    
+        // 2. Рахуємо розхід за останні 6 місяців (групування)
+        const historyTooltip = document.getElementById('consumption-history-tooltip');
+        const monthsData = {};
+        const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
+    
+        // Беремо дані за останні 180 днів для історії
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setDate(now.getDate() - 180);
+        const historyData = sortedFuel.filter(f => new Date(f.date) >= sixMonthsAgo);
+    
+        // Групуємо заправки по місяцях
+        historyData.forEach(f => {
+            const d = new Date(f.date);
+            const key = `${d.getMonth()}-${d.getFullYear()}`;
+            if (!monthsData[key]) monthsData[key] = { liters: 0, odos: [], label: `${monthNames[d.getMonth()]} ${d.getFullYear()}` };
+            monthsData[key].liters += (parseFloat(f.liters) || 0);
+            monthsData[key].odos.push(Number(f.odo));
+        });
+    
+        // Формуємо HTML для підказки
+        let tooltipHtml = "";
+        Object.keys(monthsData).sort((a,b) => {
+            const [m1, y1] = a.split('-').map(Number);
+            const [m2, y2] = b.split('-').map(Number);
+            return y2 - y1 || m2 - m1;
+        }).slice(0, 6).forEach(key => {
+            const m = monthsData[key];
+            const dist = Math.max(...m.odos) - Math.min(...m.odos);
+            // Розрахунок приблизний (літри за місяць на дистанцію за місяць)
+            const avg = dist > 50 ? ((m.liters / dist) * 100).toFixed(1) : "—"; 
+            tooltipHtml += `
+                <div class="tooltip-row">
+                    <span style="color:#aaa">${m.label}</span>
+                    <span style="font-weight:bold">${avg} л</span>
+                </div>`;
+        });
+    
+        historyTooltip.innerHTML = tooltipHtml || "Немає даних за 6 міс.";
     }
-
     function renderMaintenance(data) {
         const list = document.getElementById('maintenance-list');
         const lastOdo = data.lastOdo || 0;
