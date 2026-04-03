@@ -157,7 +157,7 @@
             tbody.innerHTML = [...data.fuel].reverse().slice(0, 5).map(f => `
                 <tr>
                     <td>${new Date(f.date).toLocaleDateString('uk')}</td>
-                    <td>${f.amount} ₴<br><span class="price-sub">${f.priceAtTime}грн/л</span></td>
+                    <td>${f.amount} ₴<br><span class="price-sub">${f.priceAtTime || f.priceattime || 0} грн/л</span></td>
                     <td>${f.liters}л</td>
                     <td>${f.odo}</td>
                 </tr>
