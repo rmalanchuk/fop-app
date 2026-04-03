@@ -95,24 +95,48 @@ const CAR_DB_PATH = path.join(__dirname, 'car_db.json');
 
 // ── Робота з базою авто ──
 async function getCarData() {
-    // Отримуємо дані з трьох таблиць одночасно
-    const { data: fuel, error: fuelErr } = await supabase.from('car_stats').select('*').order('date', { ascending: true });
-    const { data: maint, error: maintErr } = await supabase.from('car_maintenance').select('*').order('date', { ascending: true });
-    const { data: configs, error: confErr } = await supabase.from('maintenance_configs').select('*');
+    const now = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setDate(now.getDate() - 180);
+    const isoSixMonthsAgo = sixMonthsAgo.toISOString();
 
-    if (fuelErr) {
-        console.error('Supabase fetch error:', fuelErr);
-        return { fuel: [], maintenance: [], configs: [], lastOdo: 0, lastPrice: 87.99 };
+    const { data: fuel } = await supabase.from('car_stats').select('*').order('date', { ascending: true });
+    const { data: maint } = await supabase.from('car_maintenance').select('*').order('date', { ascending: true });
+    const { data: configs } = await supabase.from('maintenance_configs').select('*');
+
+    // --- МАТЕМАТИКА АНАЛІТИКИ (6 МІСЯЦІВ) ---
+    const recentFuel = fuel ? fuel.filter(f => new Date(f.date) >= sixMonthsAgo) : [];
+    
+    let avgConsumption = 0;
+    let costPer100km = 0;
+
+    if (recentFuel.length >= 2) {
+        const totalLiters = recentFuel.slice(1).reduce((sum, f) => sum + f.liters, 0); // сума літрів
+        const minOdo = recentFuel[0].odo;
+        const maxOdo = recentFuel[recentFuel.length - 1].odo;
+        const deltaOdo = maxOdo - minOdo;
+
+        if (deltaOdo > 0) {
+            // Формула: (Σ літрів / Δ пробіг) * 100
+            avgConsumption = (totalLiters / deltaOdo) * 100;
+            
+            // Формула: (Σ витрат / Δ пробіг) * 100
+            const totalSpend = recentFuel.slice(1).reduce((sum, f) => sum + f.amount, 0);
+            costPer100km = (totalSpend / deltaOdo) * 100;
+        }
     }
 
     const lastOdo = fuel && fuel.length > 0 ? Math.max(...fuel.map(d => d.odo)) : 0;
-    // Беремо останню ціну з останнього запису
     const lastPrice = fuel && fuel.length > 0 ? fuel[fuel.length - 1].priceattime : 87.99;
 
     return { 
         fuel: fuel || [], 
         maintenance: maint || [], 
         configs: configs || [], 
+        analytics: {
+            avgConsumption: avgConsumption.toFixed(2),
+            costPer100km: Math.round(costPer100km)
+        },
         lastOdo, 
         lastPrice 
     };
@@ -829,6 +853,26 @@ app.post('/api/maintenance/config', async (req, res) => {
         res.sendStatus(200);
     } catch (e) {
         console.error('Error saving config:', e);
+        res.status(500).send(e.message);
+    }
+});
+
+app.post('/api/maintenance/done', async (req, res) => {
+    if (!auth(req, res)) return;
+    
+    const { configId, currentOdo } = req.body;
+
+    if (!configId || !currentOdo) return res.status(400).send('Missing data');
+
+    try {
+        const { error } = await supabase
+            .from('maintenance_configs')
+            .update({ last_service_km: currentOdo })
+            .eq('id', configId);
+
+        if (error) throw error;
+        res.sendStatus(200);
+    } catch (e) {
         res.status(500).send(e.message);
     }
 });
