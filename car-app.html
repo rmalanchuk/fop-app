@@ -418,7 +418,21 @@ function renderServiceHistory(items) {
             // Підставляємо 0 як дефолт, щоб не було порожньо
             document.getElementById('maint-last').value = "0"; 
         }
+
+        // Автоматичне перемикання вкладки при завантаженні
+        window.addEventListener('DOMContentLoaded', () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash === 'service' || hash === 'fuel') {
+                showTab(hash);
+            }
+        });
         
+        // Оновлюємо функцію showTab, щоб вона зберігала стан в URL
+        const originalShowTab = showTab;
+        showTab = function(tab) {
+            originalShowTab(tab);
+            window.location.hash = tab; 
+        };
     </script>
     <div id="maint-modal" class="modal">
         <div class="modal-content">
