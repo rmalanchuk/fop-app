@@ -173,31 +173,24 @@
     <div class="container">
         <div id="tab-fuel">
             <div class="card" style="margin-bottom: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #eee;">
-                <div class="card" style="margin-bottom: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #eee;">
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-                        <div id="current-odo-display" class="stat-value" style="font-size: 28px; letter-spacing: -1px;">0</div>
-                        <div class="stat-label" style="font-size: 10px;">ПОТОЧНИЙ ПРОБІГ (КМ)</div>
-                    </div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    <div id="current-odo-display" class="stat-value" style="font-size: 28px; letter-spacing: -1px;">0</div>
+                    <div class="stat-label" style="font-size: 10px;">ПОТОЧНИЙ ПРОБІГ (КМ)</div>
                 </div>
-                
-                <div class="card" style="margin-bottom: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #eee;">
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-                        <div id="total-fuel-cost" class="stat-value" style="font-size: 28px; letter-spacing: -1px; color: #333;">0</div>
-                        <div class="stat-label" style="font-size: 10px;">ВСЬОГО ВИТРАЧЕНО НА ПАЛИВО (ГРН)</div>
-                    </div>
-                </div>
-                
             </div>
-        
+            
+            <div class="card" style="margin-bottom: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #eee;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    <div id="total-fuel-cost" class="stat-value" style="font-size: 28px; letter-spacing: -1px; color: var(--primary);">0</div>
+                    <div class="stat-label" style="font-size: 10px;">ВСЬОГО ВИТРАЧЕНО НА ПАЛИВО (ГРН)</div>
+                </div>
+            </div>
+            
             <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-                <div class="stat-item">
-                    <div class="stat-item" onclick="this.classList.toggle('active-tooltip')">
-                        <div id="avg-consumption" class="stat-value">0</div>
-                            <div id="consumption-label" class="stat-label">Розхід (30 дн)</div>
-                            <div id="consumption-history-tooltip" class="consumption-tooltip">
-                                Завантаження...
-                            </div>
-                        </div>
+                <div class="stat-item" onclick="this.classList.toggle('active-tooltip')">
+                    <div id="avg-consumption" class="stat-value">0</div>
+                    <div id="consumption-label" class="stat-label">Розхід (30 дн)</div>
+                    <div id="consumption-history-tooltip" class="consumption-tooltip">Завантаження...</div>
                 </div>
                 <div class="stat-item">
                     <div id="cost-100km" class="stat-value">0</div>
@@ -330,7 +323,17 @@
     
     // Допоміжна функція для розрахунку аналітики
     function updateFuelAnalytics(sortedFuel) {
-        if (!sortedFuel || sortedFuel.length < 2) return;
+        if (!sortedFuel || sortedFuel.length === 0) return;
+
+        // --- ОСЬ ЦЕЙ БЛОК РАХУЄ ЗАГАЛЬНУ СУМУ ---
+        const totalSpent = sortedFuel.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
+        const totalElement = document.getElementById('total-fuel-cost');
+        if (totalElement) {
+            totalElement.innerText = Math.round(totalSpent).toLocaleString('uk-UA');
+        }
+        // ----------------------------------------
+    
+        if (sortedFuel.length < 2) return;
     
         const now = new Date();
         
