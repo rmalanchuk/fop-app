@@ -232,9 +232,10 @@
             return;
         }
     
-        // Сортування: нові зверху
-        const sortedFuel = [...data.fuel].sort((a, b) => new Date(b.date) - new Date(a.date) || (b.odo - a.odo));
+        // Сортуємо: нові зверху
+        const sortedFuel = [...data.fuel].sort((a, b) => new Date(b.date) - new Date(a.date));
     
+        // Рендеримо таблицю
         list.innerHTML = `
             <div class="card">
                 <h3 style="margin-bottom: 15px;">Історія заправок</h3>
@@ -249,9 +250,12 @@
                     </thead>
                     <tbody>
                         ${sortedFuel.map(f => {
-                            // ПРИМУСОВЕ ПЕРЕТВОРЕННЯ В ЧИСЛА
-                            const cost = Number(f.cost) || 0;
-                            const liters = Number(f.liters) || 0;
+                            // Очищаємо дані від можливих пробілів або спецсимволів (якщо вони є в БД)
+                            const cleanCost = String(f.cost || "0").replace(/[^\d.,]/g, '').replace(',', '.');
+                            const cleanLiters = String(f.liters || "0").replace(/[^\d.,]/g, '').replace(',', '.');
+                            
+                            const cost = parseFloat(cleanCost) || 0;
+                            const liters = parseFloat(cleanLiters) || 0;
                             const odo = Number(f.odo) || 0;
                             
                             const pricePerLitre = liters > 0 ? (cost / liters).toFixed(1) : "0.0";
@@ -272,6 +276,33 @@
                 </table>
             </div>
         `;
+    
+        // Оновлюємо аналітику (якщо є хоча б 2 заправки)
+        updateFuelAnalytics(sortedFuel);
+    }
+    
+    // Допоміжна функція для розрахунку аналітики
+    function updateFuelAnalytics(sortedFuel) {
+        if (sortedFuel.length < 2) return;
+    
+        const now = new Date();
+        const halfYearAgo = now.setDate(now.getDate() - 180);
+        const recent = sortedFuel.filter(f => new Date(f.date) >= halfYearAgo);
+    
+        if (recent.length >= 2) {
+            const totalLiters = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(String(f.liters).replace(',', '.')) || 0), 0);
+            const totalCost = recent.slice(0, -1).reduce((sum, f) => sum + (parseFloat(String(f.cost).replace(',', '.')) || 0), 0);
+            
+            const odos = recent.map(f => Number(f.odo)).filter(o => o > 0);
+            const distance = Math.max(...odos) - Math.min(...odos);
+    
+            if (distance > 0) {
+                const avg = (totalLiters / distance) * 100;
+                const cost100 = (totalCost / distance) * 100;
+                document.getElementById('avg-consumption').innerText = avg.toFixed(1);
+                document.getElementById('cost-100km').innerText = Math.round(cost100).toLocaleString();
+            }
+        }
     }
 
     function renderMaintenance(data) {
