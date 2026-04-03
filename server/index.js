@@ -100,7 +100,30 @@ app.post('/api/maintenance/config', async (req, res) => {
     res.json({ success: true });
 });
 
-// 2. Оновлення пробігу (Кнопка "Виконано")
+// 2. ВИДАЛЕННЯ ТРЕКЕРА (ДОДАЙ ЦЕЙ БЛОК СЮДИ)
+app.delete('/api/maintenance/config/:id', async (req, res) => {
+    const { id } = req.params;
+    const secretKey = req.headers['x-secret-key'];
+
+    // Перевірка безпеки
+    if (secretKey !== process.env.SECRET_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { error } = await supabase
+        .from('maintenance_configs')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Помилка видалення:', error);
+        return res.status(500).json(error);
+    }
+
+    res.json({ success: true });
+});
+
+// 3. Оновлення пробігу (Кнопка "Виконано")
 app.post('/api/maintenance/done', async (req, res) => {
     const { configId, currentOdo } = req.body;
     const secretKey = req.headers['x-secret-key'];
