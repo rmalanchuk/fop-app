@@ -79,6 +79,42 @@ if (finBot) {
 
 // 5. Запуск сервера (один раз!)
 const PORT = process.env.PORT || 3000;
+// --- МАРШРУТИ ДЛЯ MAINTENANCE MANAGER ---
+
+// 1. Створення нового трекера
+app.post('/api/maintenance/config', async (req, res) => {
+    const { name, limit_km, last_service_km } = req.body; // Фронт шле limit_km
+    const secretKey = req.headers['x-secret-key'];
+
+    if (secretKey !== process.env.SECRET_KEY) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { data, error } = await supabase
+        .from('maintenance_configs')
+        .insert([{ 
+            name, 
+            threshold_km: parseInt(limit_km), // Записуємо в колонку threshold_km
+            last_service_km: parseInt(last_service_km) 
+        }]);
+
+    if (error) return res.status(500).json(error);
+    res.json({ success: true });
+});
+
+// 2. Оновлення пробігу (Кнопка "Виконано")
+app.post('/api/maintenance/done', async (req, res) => {
+    const { configId, currentOdo } = req.body;
+    const secretKey = req.headers['x-secret-key'];
+
+    if (secretKey !== process.env.SECRET_KEY) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { data, error } = await supabase
+        .from('maintenance_configs')
+        .update({ last_service_km: parseInt(currentOdo) })
+        .eq('id', configId);
+
+    if (error) return res.status(500).json(error);
+    res.json({ success: true });
+});
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`✅ Webhooks are being set via Express middleware`);
