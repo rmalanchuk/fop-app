@@ -187,7 +187,7 @@
             </div>
             
             <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-                <div class="stat-item" onclick="this.classList.toggle('active-tooltip')">
+                <div class="stat-item" id="consumption-trigger">
                     <div id="avg-consumption" class="stat-value">0</div>
                     <div id="consumption-label" class="stat-label">Розхід (30 дн)</div>
                     <div id="consumption-history-tooltip" class="consumption-tooltip">Завантаження...</div>
@@ -541,6 +541,19 @@
         if (hash) showTab(hash);
         loadData();
     };
+        
+    const trigger = document.getElementById('consumption-trigger');
+    if (trigger) {
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.toggle('active-tooltip');
+        });
+        document.addEventListener('click', function(e) {
+            if (!trigger.contains(e.target)) {
+                trigger.classList.remove('active-tooltip');
+            }
+        });
+    }
 </script>
     
     <div id="maint-modal" class="modal">
