@@ -69,6 +69,16 @@
         .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
         .btn-save { background: var(--primary); color: white; border: none; flex: 1; padding: 12px; border-radius: 10px; font-weight: bold; }
         .btn-cancel { background: #eee; color: #333; border: none; flex: 1; padding: 12px; border-radius: 10px; }
+
+        /* Ефект натискання для кнопок */
+        .btn-save:active, .btn-cancel:active {
+            transform: scale(0.96);
+            opacity: 0.8;
+        }
+        /* Підказки над інпутами */
+        .input-group { margin-bottom: 12px; }
+        .input-label { font-size: 11px; color: var(--gray); margin-bottom: 4px; display: block; padding-left: 5px; }
+        
     </style>
 </head>
 <body>
@@ -200,37 +210,63 @@
         const list = document.getElementById('maintenance-list');
         const lastOdo = data.lastOdo || 0;
         
-        // Оновлюємо цифри аналітики
+        // 1. ПІДРАХУНОК ВИТРАТ
+        // Загальні
         const total = data.maintenance.reduce((sum, s) => sum + s.cost, 0);
         document.getElementById('total-service-cost').innerText = total.toLocaleString();
     
+        // За останні 3 місяці (90 днів) — фікс через Timestamp
+        const now = new Date();
+        const ninetyDaysAgo = new Date().getTime() - (90 * 24 * 60 * 60 * 1000);
+        
+        const recentTotal = data.maintenance
+            .filter(s => {
+                const serviceDate = new Date(s.date).getTime();
+                return serviceDate >= ninetyDaysAgo;
+            })
+            .reduce((sum, s) => sum + s.cost, 0);
+        
+        document.getElementById('recent-service-cost').innerText = recentTotal.toLocaleString();
+    
+        // 2. РЕНДЕР ТРЕКЕРІВ (CONFIGS)
         if (!data.configs || data.configs.length === 0) {
-            list.innerHTML = '<p style="color:gray; font-size:12px; text-align:center;">Трекерів немає. Натисніть + щоб додати.</p>';
+            list.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Трекерів немає. Натисніть + щоб додати.</p>';
             return;
         }
     
         list.innerHTML = data.configs.map(c => {
-            // ВИПРАВЛЕННЯ: використовуємо c.threshold_km замість limit_km
-            const limit = c.threshold_km || c.limit_km; 
-            const passed = lastOdo - c.last_service_km;
+            const limit = c.threshold_km || c.limit_km || 0; 
+            const lastService = c.last_service_km || 0;
+            
+            const passed = lastOdo - lastService;
             const remaining = limit - passed;
-            const percent = Math.min(Math.max((passed / limit) * 100, 0), 100);
+            
+            // Розрахунок відсотка (захист від ділення на 0)
+            const percent = limit > 0 ? Math.min(Math.max((passed / limit) * 100, 0), 100) : 0;
+            
+            // Критичний стан: залишилось менше 10% ресурсу або пробіг вже "в мінусі"
             const isCritical = remaining <= (limit * 0.1);
             
             return `
                 <div class="maint-item" style="margin-bottom:20px;">
-                    <div class="maint-header">
-                        <span>${c.name}</span>
-                        <span style="color:${isCritical ? '#ff3b30' : 'var(--gray)'}">
+                    <div class="maint-header" style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px;">
+                        <span style="font-weight:600;">${c.name}</span>
+                        <span style="color:${isCritical ? '#ff3b30' : 'var(--gray)'}; font-weight:bold;">
                             ${remaining > 0 ? 'Залишилось ' + remaining + ' км' : 'Прострочено!'}
                         </span>
                     </div>
-                    <div class="progress-bg">
-                        <div class="progress-fill ${isCritical ? 'critical' : ''}" style="width: ${percent}%"></div>
+                    <div class="progress-bg" style="height:10px; background:#eee; border-radius:5px; overflow:hidden;">
+                        <div class="progress-fill ${isCritical ? 'critical' : ''}" 
+                             style="width: ${percent}%; height:100%; background:${isCritical ? '#ff3b30' : 'var(--primary)'}; transition: width 0.5s;">
+                        </div>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                        <span style="font-size:10px; color:gray;">Заміна: ${c.last_service_km} км | Ліміт: ${limit}</span>
-                        <button class="btn-done" onclick="updateMaintenance(${c.id}, ${lastOdo})">Виконано</button>
+                        <span style="font-size:10px; color:gray;">Остання: ${lastService.toLocaleString()} км | Ліміт: ${limit.toLocaleString()}</span>
+                        <button class="btn-done" 
+                                style="background:#34c759; color:white; border:none; padding:5px 12px; border-radius:8px; font-size:12px; cursor:pointer;"
+                                onclick="updateMaintenance(${c.id}, ${lastOdo})">
+                            Виконано
+                        </button>
                     </div>
                 </div>
             `;
@@ -301,28 +337,39 @@ function renderServiceHistory(services) {
         }
         
         async function saveNewMaint() {
+            const btn = document.getElementById('save-maint-btn');
             const name = document.getElementById('maint-name').value;
             const limit = document.getElementById('maint-limit').value;
             const last = document.getElementById('maint-last').value;
         
             if (!name || !limit || !last) return alert("Заповніть всі поля");
         
+            btn.innerText = "Збереження...";
+            btn.disabled = true;
+        
             try {
                 const response = await fetch(`${API_URL}/api/maintenance/config`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-secret-key': key },
-                    body: JSON.stringify({ name, limit_km: parseInt(limit), last_service_km: parseInt(last) })
+                    body: JSON.stringify({ 
+                        name: name, 
+                        limit_km: parseInt(limit), 
+                        last_service_km: parseInt(last) 
+                    })
                 });
         
                 if (response.ok) {
-                    closeMaintModal();
-                    location.reload();
+                    closeMaintModal(); // Тепер закриється
+                    location.reload(); // Перезавантаження підтягне новий трекер
                 } else {
-                    alert("Помилка при збереженні");
+                    const err = await response.json();
+                    alert("Помилка: " + (err.message || "сервер не відповів"));
                 }
             } catch (e) {
-                console.error(e);
-                alert("З'єднання з сервером втрачено");
+                alert("Помилка мережі");
+            } finally {
+                btn.innerText = "Зберегти";
+                btn.disabled = false;
             }
         }
         
@@ -334,13 +381,26 @@ function renderServiceHistory(services) {
     </script>
     <div id="maint-modal" class="modal">
         <div class="modal-content">
-            <h3>Новий трекер ТО</h3>
-            <input type="text" id="maint-name" class="modal-input" placeholder="Назва (напр. Олива)">
-            <input type="number" id="maint-limit" class="modal-input" placeholder="Ліміт (напр. 8000 км)">
-            <input type="number" id="maint-last" class="modal-input" placeholder="Пробіг при заміні">
+            <h3 style="margin-bottom: 20px;">Новий трекер ТО</h3>
+            
+            <div class="input-group">
+                <label class="input-label">Що обслуговуємо?</label>
+                <input type="text" id="maint-name" class="modal-input" placeholder="напр. Мастило в АКПП">
+            </div>
+        
+            <div class="input-group">
+                <label class="input-label">Інтервал заміни (км)</label>
+                <input type="number" id="maint-limit" class="modal-input" placeholder="напр. 60000">
+            </div>
+        
+            <div class="input-group">
+                <label class="input-label">На якому пробігу була остання заміна?</label>
+                <input type="number" id="maint-last" class="modal-input" placeholder="напр. 245000">
+            </div>
+        
             <div class="modal-buttons">
                 <button class="btn-cancel" onclick="closeMaintModal()">Скасувати</button>
-                <button class="btn-save" onclick="saveNewMaint()">Зберегти</button>
+                <button id="save-maint-btn" class="btn-save" onclick="saveNewMaint()">Зберегти</button>
             </div>
         </div>
     </div>
