@@ -95,23 +95,28 @@ const CAR_DB_PATH = path.join(__dirname, 'car_db.json');
 
 // ── Робота з базою авто ──
 async function getCarData() {
-    const { data, error } = await supabase
-        .from('car_stats')
-        .select('*')
-        .order('date', { ascending: true });
+    // Отримуємо дані з трьох таблиць одночасно
+    const { data: fuel, error: fuelErr } = await supabase.from('car_stats').select('*').order('date', { ascending: true });
+    const { data: maint, error: maintErr } = await supabase.from('car_maintenance').select('*').order('date', { ascending: true });
+    const { data: configs, error: confErr } = await supabase.from('maintenance_configs').select('*');
 
-    if (error) {
-        console.error('Supabase fetch error:', error);
-        return { fuel: [], lastOdo: 0, lastPrice: 87.99 };
+    if (fuelErr) {
+        console.error('Supabase fetch error:', fuelErr);
+        return { fuel: [], maintenance: [], configs: [], lastOdo: 0, lastPrice: 87.99 };
     }
 
-    const lastOdo = data && data.length > 0 ? Math.max(...data.map(d => d.odo)) : 0;
-    // Використовуємо назву поля точно як у базі — priceattime
-    const lastPrice = data && data.length > 0 ? data[data.length - 1].priceattime : 87.99;
+    const lastOdo = fuel && fuel.length > 0 ? Math.max(...fuel.map(d => d.odo)) : 0;
+    // Беремо останню ціну з останнього запису
+    const lastPrice = fuel && fuel.length > 0 ? fuel[fuel.length - 1].priceattime : 87.99;
 
-    return { fuel: data || [], lastOdo, lastPrice };
+    return { 
+        fuel: fuel || [], 
+        maintenance: maint || [], 
+        configs: configs || [], 
+        lastOdo, 
+        lastPrice 
+    };
 }
-
 async function saveCarData(entry) {
     const dbEntry = {
         date: entry.date,
@@ -151,9 +156,9 @@ if (TELEGRAM_TOKEN) {
     const mainKeyboard = {
         reply_markup: {
             keyboard: [
-                [{ text: '⛽️ Остання ціна' }]
+                [{ text: '⛽️ Остання ціна' }, { text: '🗑 Скасувати останній запис' }]
             ],
-            resize_keyboard: true // Робить кнопку компактною
+            resize_keyboard: true 
         }
     };
 
@@ -185,7 +190,66 @@ if (TELEGRAM_TOKEN) {
     // Слухаємо і команду, і натискання кнопки
     bot.command('price', sendLastPrice);
     bot.hears('⛽️ Остання ціна', sendLastPrice);
+    bot.hears('🗑 Скасувати останній запис', async (ctx) => {
+        // Беремо самий останній запис з обох таблиць за ID
+        const { data: fuel } = await supabase.from('car_stats').select('*').order('id', { ascending: false }).limit(1);
+        const { data: maint } = await supabase.from('car_maintenance').select('*').order('id', { ascending: false }).limit(1);
 
+        let last = null;
+        let type = '';
+
+        const f = fuel?.[0];
+        const m = maint?.[0];
+
+        if (!f && !m) return ctx.reply("Записів не знайдено.");
+
+        // Порівнюємо, хто "новіший"
+        if (f && (!m || f.id > m.id)) {
+            last = f;
+            type = 'fuel';
+        } else {
+            last = m;
+            type = 'service';
+        }
+
+        const info = type === 'fuel' 
+            ? `⛽ Паливо: ${last.amount} грн (${last.liters}л)` 
+            : `🛠 Сервіс: ${last.description} (${last.cost} грн)`;
+
+        ctx.replyWithMarkdown(
+            `⚠️ **Видалити останній запис?**\n\n${info}\n📅 Дата: ${last.date.split('T')[0]}`,
+            {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '✅ Так, видалити', callback_data: `car_del_${type}_${last.id}` }],
+                        [{ text: '❌ Скасувати', callback_data: 'car_del_cancel' }]
+                    ]
+                }
+            }
+        );
+    });
+
+    // Обробник натискання кнопок видалення
+    bot.action(/^car_del_(.+)$/, async (ctx) => {
+        const actionData = ctx.match[1].split('_');
+        if (actionData[0] === 'cancel') {
+            await ctx.answerCbQuery();
+            return ctx.editMessageText("Видалення скасовано.");
+        }
+
+        const [type, id] = actionData;
+        const table = type === 'fuel' ? 'car_stats' : 'car_maintenance';
+
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        
+        if (!error) {
+            await ctx.answerCbQuery("Видалено");
+            await ctx.editMessageText("✅ Запис успішно видалено з бази.");
+        } else {
+            await ctx.answerCbQuery("Помилка");
+            await ctx.reply("Не вдалося видалити запис.");
+        }
+    });
     bot.command('service', async (ctx) => {
         const messageText = ctx.message.text.replace('/service', '').trim();
         
@@ -743,6 +807,32 @@ function auth(req, res) {
 }
 
 // ── API Endpoints ──
+app.post('/api/maintenance/config', async (req, res) => {
+    // Використовуємо твою існуючу функцію авторизації auth
+    if (!auth(req, res)) return;
+
+    const { id, name, threshold_km, last_service_km } = req.body;
+
+    try {
+        if (id) {
+            // Оновлення існуючого трекера (напр. Олива)
+            await supabase
+                .from('maintenance_configs')
+                .update({ name, threshold_km, last_service_km })
+                .eq('id', id);
+        } else {
+            // Створення нового трекера (напр. ГРМ або Гальма)
+            await supabase
+                .from('maintenance_configs')
+                .insert([{ name, threshold_km, last_service_km }]);
+        }
+        res.sendStatus(200);
+    } catch (e) {
+        console.error('Error saving config:', e);
+        res.status(500).send(e.message);
+    }
+});
+    
 app.get('/accounts', async (req, res) => {
     if (!auth(req, res)) return;
     try {
