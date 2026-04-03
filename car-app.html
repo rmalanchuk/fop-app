@@ -301,65 +301,40 @@
         }).join('');
     }
         
-function renderServiceHistory(services) {
-    const container = document.getElementById('service-history');
-    if (!services || services.length === 0) return;
-
-    const monthNames = ["січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру"];
+function renderServiceHistory(data) {
+    const container = document.getElementById('service-history-list');
     
-    // Групуємо записи по 3 місяці
-    const groups = {};
-    const now = new Date();
+    // Перевіряємо, чи є дані
+    if (!data.maintenance || data.maintenance.length === 0) {
+        container.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Історія порожня.</p>';
+        return;
+    }
 
-    services.forEach(s => {
-        const sDate = new Date(s.date);
-        // Визначаємо групу (напр. "лют-кві")
-        // Розрахунок: беремо квартали від поточного місяця
-        const diffMonth = (now.getFullYear() - sDate.getFullYear()) * 12 + now.getMonth() - sDate.getMonth();
-        const groupIndex = Math.floor(diffMonth / 3);
-        
-        if (groupIndex > 3) return; // Тільки за останні 12 місяців (4 групи)
+    // 1. Сортуємо всі записи: найновіша дата зверху
+    const sortedItems = [...data.maintenance].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        const groupEnd = new Date(now);
-        groupEnd.setMonth(now.getMonth() - (groupIndex * 3));
-        const groupStart = new Date(now);
-        groupStart.setMonth(now.getMonth() - (groupIndex * 3 + 2));
+    // Назви місяців для форматування дати
+    const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
 
-        const label = `${monthNames[groupStart.getMonth()]} – ${monthNames[groupEnd.getMonth()]}`;
-        
-        if (!groups[label]) groups[label] = [];
-        groups[label].push(s);
-    });
+    // 2. Геруємо HTML для всього списку без розділювачів місяців
+    container.innerHTML = sortedItems.map(i => {
+        const dateObj = new Date(i.date);
+        const dateString = `${dateObj.getDate()} ${monthNames[dateObj.getMonth()]}`;
 
-    let html = "";
-    for (const [label, items] of Object.entries(groups)) {
-        const sum = items.reduce((s, i) => s + i.cost, 0);
-        html += `
-            <div class="season-header" style="display:flex; justify-content:space-between; margin: 15px 0 8px 0;">
-                <span>${label.toUpperCase()}</span>
-                <span>${sum} ₴</span>
-            </div>
-            <div style="padding-left: 5px; border-left: 2px solid #eee;">
-                ${items.map(i => `
-                    <div style="display:flex; justify-content:space-between; font-size:13px; padding: 8px 0; border-bottom: 1px solid #f9f9f9; align-items: flex-start;">
-                        <div style="display:flex; flex-direction:column;">
-                            <span style="font-weight: 500; color: #333;">${i.description}</span>
-                            <div style="display:flex; gap: 6px; align-items: center; margin-top: 2px;">
-                                ${i.odo ? `<span style="background: #eee; padding: 0px 5px; border-radius: 4px; font-size: 10px; color: #666; font-weight: 600;">${i.odo.toLocaleString()} км</span>` : ''}
-                                <small style="color:gray; font-size:10px;">
-                                    ${new Date(i.date).getDate()} ${monthNames[new Date(i.date).getMonth()]}
-                                </small>
-                            </div>
-                        </div>
-                        <span style="font-weight:600; color: #333;">${i.cost} ₴</span>
+        return `
+            <div style="display:flex; justify-content:space-between; font-size:13px; padding: 10px 0; border-bottom: 1px solid #f2f2f2; align-items: flex-start;">
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-weight: 500; color: #333; margin-bottom: 2px;">${i.description}</span>
+                    <div style="display:flex; gap: 6px; align-items: center;">
+                        ${i.odo ? `<span style="background: #eee; padding: 1px 5px; border-radius: 4px; font-size: 10px; color: #666; font-weight: 600;">${i.odo.toLocaleString()} км</span>` : ''}
+                        <small style="color:gray; font-size:10px;">${dateString}</small>
                     </div>
-                `).join('')}
+                </div>
+                <span style="font-weight:600; color: #333; white-space: nowrap;">${(Number(i.cost) || 0).toLocaleString()} ₴</span>
             </div>
         `;
-    }
-    container.innerHTML = html || '<p style="color:gray; text-align:center; font-size:12px;">За останні 12 місяців записів немає</p>';
+    }).join('');
 }
-
         loadData();
         function openMaintModal() {
             document.getElementById('maint-modal').style.display = 'block';
