@@ -232,27 +232,39 @@
             return;
         }
     
+        // Сортування: нові зверху
         const sortedFuel = [...data.fuel].sort((a, b) => new Date(b.date) - new Date(a.date) || (b.odo - a.odo));
     
         list.innerHTML = `
             <div class="card">
                 <h3 style="margin-bottom: 15px;">Історія заправок</h3>
-                <table>
+                <table style="width:100%; border-collapse: collapse;">
                     <thead>
-                        <tr><th>Дата</th><th>Сума</th><th>Літри</th><th>Пробіг</th></tr>
+                        <tr style="text-align:left; color:gray; font-size:12px;">
+                            <th style="padding-bottom:10px;">Дата</th>
+                            <th style="padding-bottom:10px;">Сума</th>
+                            <th style="padding-bottom:10px;">Літри</th>
+                            <th style="padding-bottom:10px;">Пробіг</th>
+                        </tr>
                     </thead>
                     <tbody>
                         ${sortedFuel.map(f => {
-                            const pricePerLitre = f.liters > 0 ? (f.cost / f.liters).toFixed(1) : 0;
+                            // ПРИМУСОВЕ ПЕРЕТВОРЕННЯ В ЧИСЛА
+                            const cost = Number(f.cost) || 0;
+                            const liters = Number(f.liters) || 0;
+                            const odo = Number(f.odo) || 0;
+                            
+                            const pricePerLitre = liters > 0 ? (cost / liters).toFixed(1) : "0.0";
+    
                             return `
-                                <tr>
-                                    <td>${new Date(f.date).toLocaleDateString('uk-UA')}</td>
+                                <tr style="border-bottom: 1px solid #f9f9f9;">
+                                    <td style="padding:12px 0; font-size:14px;">${new Date(f.date).toLocaleDateString('uk-UA')}</td>
                                     <td>
-                                        <div style="font-weight:600;">${Number(f.cost).toLocaleString()} ₴</div>
-                                        <div class="price-sub">${pricePerLitre} грн/л</div>
+                                        <div style="font-weight:600; font-size:14px;">${cost.toLocaleString()} ₴</div>
+                                        <div style="font-size:10px; color:gray;">${pricePerLitre} грн/л</div>
                                     </td>
-                                    <td>${f.liters}л</td>
-                                    <td style="color:#666;">${Number(f.odo).toLocaleString()}</td>
+                                    <td style="font-size:14px;">${liters}л</td>
+                                    <td style="color:#666; font-size:14px;">${odo.toLocaleString()}</td>
                                 </tr>
                             `;
                         }).join('')}
