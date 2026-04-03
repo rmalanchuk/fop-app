@@ -215,36 +215,63 @@ if (TELEGRAM_TOKEN) {
     bot.command('price', sendLastPrice);
     bot.hears('⛽️ Остання ціна', sendLastPrice);
     bot.hears('🗑 Скасувати останній запис', async (ctx) => {
-        // Беремо останні записи, сортуючи саме за часом створення (created_at)
-        const { data: fuel } = await supabase.from('car_stats').select('*').order('created_at', { ascending: false }).limit(1);
-        const { data: maint } = await supabase.from('car_maintenance').select('*').order('created_at', { ascending: false }).limit(1);
+        // 1. Отримуємо ОДИН останній запис з палива
+        const { data: fuelData } = await supabase
+            .from('car_stats')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-        const f = fuel?.[0];
-        const m = maint?.[0];
+        // 2. Отримуємо ОДИН останній запис з сервісу
+        const { data: maintData } = await supabase
+            .from('car_maintenance')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-        if (!f && !m) return ctx.reply("Записів не знайдено.");
+        const f = fuelData?.[0]; // Останнє паливо (або null)
+        const m = maintData?.[0]; // Останній сервіс (або null)
+
+        // 3. Якщо взагалі нічого немає
+        if (!f && !m) {
+            return ctx.reply("У базі немає жодних записів для видалення.");
+        }
 
         let last = null;
         let type = '';
 
-        // ПОРІВНЯННЯ ЗА ЧАСОМ (Date.parse перетворює рядок часу в число для порівняння)
-        const fuelTime = f ? Date.parse(f.created_at || f.date) : 0;
-        const maintTime = m ? Date.parse(m.created_at || m.date) : 0;
+        // 4. ЛОГІКА ПОРІВНЯННЯ
+        if (f && m) {
+            // Якщо є обидва, порівнюємо час створення
+            const fuelTime = new Date(f.created_at).getTime();
+            const maintTime = new Date(m.created_at).getTime();
 
-        if (fuelTime > maintTime) {
+            if (fuelTime > maintTime) {
+                last = f;
+                type = 'fuel';
+            } else {
+                last = m;
+                type = 'service';
+            }
+        } else if (f) {
+            // Якщо сервісів немає, беремо паливо
             last = f;
             type = 'fuel';
         } else {
+            // Якщо палива немає, беремо сервіс
             last = m;
             type = 'service';
         }
 
+        // 5. Формуємо текст повідомлення
         const info = type === 'fuel' 
-            ? `⛽ Паливо: ${last.amount} грн (${last.liters}л)` 
-            : `🛠 Сервіс: ${last.description} (${last.cost} грн)`;
+            ? `⛽ **Паливо**: ${last.amount} грн (${last.liters}л)` 
+            : `🛠 **Сервіс**: ${last.description} (${last.cost} грн)`;
+
+        const dateStr = last.date ? last.date.split('T')[0] : 'Невідома дата';
 
         ctx.replyWithMarkdown(
-            `⚠️ **Видалити останній запис?**\n\n${info}\n📅 Дата: ${last.date.split('T')[0]}`,
+            `⚠️ **Видалити останній запис?**\n\n${info}\n📅 Дата: ${dateStr}`,
             {
                 reply_markup: {
                     inline_keyboard: [
@@ -255,7 +282,6 @@ if (TELEGRAM_TOKEN) {
             }
         );
     });
-
     // Обробник натискання кнопок видалення
     bot.action(/^car_del_(.+)$/, async (ctx) => {
         const actionData = ctx.match[1].split('_');
