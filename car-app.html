@@ -196,53 +196,47 @@
             `).join('');
         }
 
-        function renderMaintenance(data) {
-    const list = document.getElementById('maintenance-list');
-    const lastOdo = data.lastOdo || 0;
+    function renderMaintenance(data) {
+        const list = document.getElementById('maintenance-list');
+        const lastOdo = data.lastOdo || 0;
+        
+        // Оновлюємо цифри аналітики
+        const total = data.maintenance.reduce((sum, s) => sum + s.cost, 0);
+        document.getElementById('total-service-cost').innerText = total.toLocaleString();
     
-    // Рахуємо загальні витрати
-    const total = data.maintenance.reduce((sum, s) => sum + s.cost, 0);
-    document.getElementById('total-service-cost').innerText = total.toLocaleString();
-
-    // Витрати за останні 3 місяці (90 днів)
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
-    const recentTotal = data.maintenance
-        .filter(s => new Date(s.date) >= threeMonthsAgo)
-        .reduce((sum, s) => sum + s.cost, 0);
-    document.getElementById('recent-service-cost').innerText = recentTotal.toLocaleString();
-
-    if (!data.configs || data.configs.length === 0) {
-        list.innerHTML = '<p style="color:gray; font-size:12px;">Додайте трекери в БД (maintenance_configs)</p>';
-        return;
+        if (!data.configs || data.configs.length === 0) {
+            list.innerHTML = '<p style="color:gray; font-size:12px; text-align:center;">Трекерів немає. Натисніть + щоб додати.</p>';
+            return;
+        }
+    
+        list.innerHTML = data.configs.map(c => {
+            // ВИПРАВЛЕННЯ: використовуємо c.threshold_km замість limit_km
+            const limit = c.threshold_km || c.limit_km; 
+            const passed = lastOdo - c.last_service_km;
+            const remaining = limit - passed;
+            const percent = Math.min(Math.max((passed / limit) * 100, 0), 100);
+            const isCritical = remaining <= (limit * 0.1);
+            
+            return `
+                <div class="maint-item" style="margin-bottom:20px;">
+                    <div class="maint-header">
+                        <span>${c.name}</span>
+                        <span style="color:${isCritical ? '#ff3b30' : 'var(--gray)'}">
+                            ${remaining > 0 ? 'Залишилось ' + remaining + ' км' : 'Прострочено!'}
+                        </span>
+                    </div>
+                    <div class="progress-bg">
+                        <div class="progress-fill ${isCritical ? 'critical' : ''}" style="width: ${percent}%"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                        <span style="font-size:10px; color:gray;">Заміна: ${c.last_service_km} км | Ліміт: ${limit}</span>
+                        <button class="btn-done" onclick="updateMaintenance(${c.id}, ${lastOdo})">Виконано</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
-
-    list.innerHTML = data.configs.map(c => {
-        const passed = lastOdo - c.last_service_km;
-        const remaining = c.limit_km - passed;
-        const percent = Math.min(Math.max((passed / c.limit_km) * 100, 0), 100);
         
-        // Пульсація, якщо залишилось менше 10% ресурсу (або ми вже проїхали ліміт)
-        const isCritical = (c.limit_km - passed) <= (c.limit_km * 0.1);
-        
-        return `
-            <div class="maint-item" style="margin-bottom:20px;">
-                <div class="maint-header">
-                    <span>${c.name}</span>
-                    <span style="color:${isCritical ? '#ff3b30' : 'var(--gray)'}">${remaining > 0 ? 'Залишилось ' + remaining + ' км' : 'Прострочено!'}</span>
-                </div>
-                <div class="progress-bg">
-                    <div class="progress-fill ${isCritical ? 'critical' : ''}" style="width: ${percent}%"></div>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                    <span style="font-size:10px; color:gray;">Остання заміна: ${c.last_service_km} км</span>
-                    <button class="btn-done" onclick="updateMaintenance(${c.id}, ${lastOdo})">Виконано</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
 function renderServiceHistory(services) {
     const container = document.getElementById('service-history');
     if (!services || services.length === 0) return;
