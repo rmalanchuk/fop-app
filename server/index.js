@@ -215,20 +215,23 @@ if (TELEGRAM_TOKEN) {
     bot.command('price', sendLastPrice);
     bot.hears('⛽️ Остання ціна', sendLastPrice);
     bot.hears('🗑 Скасувати останній запис', async (ctx) => {
-        // Беремо самий останній запис з обох таблиць за ID
-        const { data: fuel } = await supabase.from('car_stats').select('*').order('id', { ascending: false }).limit(1);
-        const { data: maint } = await supabase.from('car_maintenance').select('*').order('id', { ascending: false }).limit(1);
-
-        let last = null;
-        let type = '';
+        // Беремо останні записи, сортуючи саме за часом створення (created_at)
+        const { data: fuel } = await supabase.from('car_stats').select('*').order('created_at', { ascending: false }).limit(1);
+        const { data: maint } = await supabase.from('car_maintenance').select('*').order('created_at', { ascending: false }).limit(1);
 
         const f = fuel?.[0];
         const m = maint?.[0];
 
         if (!f && !m) return ctx.reply("Записів не знайдено.");
 
-        // Порівнюємо, хто "новіший"
-        if (f && (!m || f.id > m.id)) {
+        let last = null;
+        let type = '';
+
+        // ПОРІВНЯННЯ ЗА ЧАСОМ (Date.parse перетворює рядок часу в число для порівняння)
+        const fuelTime = f ? Date.parse(f.created_at || f.date) : 0;
+        const maintTime = m ? Date.parse(m.created_at || m.date) : 0;
+
+        if (fuelTime > maintTime) {
             last = f;
             type = 'fuel';
         } else {
