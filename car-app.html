@@ -51,6 +51,24 @@
 
         .hidden { display: none; }
         .season-header { background: #eee; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-top: 15px; }
+
+        /* Стилі для модального вікна */
+        .modal {
+            display: none; position: fixed; z-index: 2000; left: 0; top: 0; 
+            width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: white; margin: 20% auto; padding: 20px; 
+            border-radius: 20px; width: 85%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 { margin-top: 0; }
+        .modal-input {
+            width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; 
+            border-radius: 10px; box-sizing: border-box; font-size: 16px;
+        }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-save { background: var(--primary); color: white; border: none; flex: 1; padding: 12px; border-radius: 10px; font-weight: bold; }
+        .btn-cancel { background: #eee; color: #333; border: none; flex: 1; padding: 12px; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -99,7 +117,7 @@
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                     <h3 style="margin:0;">Maintenance Manager</h3>
-                    <button onclick="alert('Функція додавання буде в v2.1')" style="background:none; border:none; color:var(--primary); font-size:20px; cursor:pointer;">+</button>
+                    <button onclick="openMaintModal()" style="background:none; border:none; color:var(--primary); font-size:24px; cursor:pointer; font-weight:bold;">+</button>
                 </div>
                 <div id="maintenance-list"></div>
             </div>
@@ -277,6 +295,60 @@ function renderServiceHistory(services) {
 }
 
         loadData();
+        function openMaintModal() {
+            document.getElementById('maint-modal').style.display = 'block';
+            // Автоматично підставляємо останній відомий пробіг для зручності
+            const lastOdoText = document.getElementById('last-odo')?.innerText || "0";
+            document.getElementById('maint-last').value = lastOdoText.replace(/\s/g, '');
+        }
+        
+        function closeMaintModal() {
+            document.getElementById('maint-modal').style.display = 'none';
+        }
+        
+        async function saveNewMaint() {
+            const name = document.getElementById('maint-name').value;
+            const limit = document.getElementById('maint-limit').value;
+            const last = document.getElementById('maint-last').value;
+        
+            if (!name || !limit || !last) return alert("Заповніть всі поля");
+        
+            try {
+                const response = await fetch(`${API_URL}/api/maintenance/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-secret-key': key },
+                    body: JSON.stringify({ name, limit_km: parseInt(limit), last_service_km: parseInt(last) })
+                });
+        
+                if (response.ok) {
+                    closeMaintModal();
+                    location.reload();
+                } else {
+                    alert("Помилка при збереженні");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("З'єднання з сервером втрачено");
+            }
+        }
+        
+        // Закриття вікна при кліку поза ним
+        window.onclick = function(event) {
+            const modal = document.getElementById('maint-modal');
+            if (event.target == modal) closeMaintModal();
+        }
     </script>
+    <div id="maint-modal" class="modal">
+        <div class="modal-content">
+            <h3>Новий трекер ТО</h3>
+            <input type="text" id="maint-name" class="modal-input" placeholder="Назва (напр. Олива)">
+            <input type="number" id="maint-limit" class="modal-input" placeholder="Ліміт (напр. 8000 км)">
+            <input type="number" id="maint-last" class="modal-input" placeholder="Пробіг при заміні">
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeMaintModal()">Скасувати</button>
+                <button class="btn-save" onclick="saveNewMaint()">Зберегти</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
