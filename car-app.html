@@ -304,18 +304,20 @@
 function renderServiceHistory(items) {
     const container = document.getElementById('service-history-list');
     
-    // Перевіряємо саме той масив (items), який передали у функцію
     if (!items || items.length === 0) {
         container.innerHTML = '<p style="color:gray; font-size:12px; text-align:center; padding: 20px;">Історія порожня.</p>';
         return;
     }
 
-    // 1. Сортуємо: найновіша дата зверху
-    const sortedItems = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
+    // СОРТУВАННЯ: спочатку за датою, якщо дати рівні — за ID (свіжіші мають більший ID)
+    const sortedItems = [...items].sort((a, b) => {
+        const dateDiff = new Date(b.date) - new Date(a.date);
+        if (dateDiff !== 0) return dateDiff;
+        return b.id - a.id; // Додаткова перевірка за ID для однакових дат
+    });
 
     const monthNames = ["січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд"];
 
-    // 2. Рендеримо список
     container.innerHTML = sortedItems.map(i => {
         const dateObj = new Date(i.date);
         const dateString = `${dateObj.getDate()} ${monthNames[dateObj.getMonth()]}`;
